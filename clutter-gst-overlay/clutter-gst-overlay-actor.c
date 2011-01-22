@@ -7,6 +7,7 @@
  *                               video stream.
  *
  * Authored By Viatcheslav Gachkaylo  <vgachkaylo@crystalnix.com>
+ *             Vadim Zakondyrin       <thekondr@crystalnix.com>
  *
  * Copyright (C) 2011 Crystalnix
  *
@@ -26,17 +27,218 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#include <glib.h>
+#include "clutter-gst-overlay-actor.h"
+#include <gst/interfaces/xoverlay.h>
+#include <X11/Xlib.h>
 
-static void clutter_media_init (ClutterMediaIface *iface);
+#define CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE(obj) \
+        (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
+        CLUTTER_TYPE_GST_OVERLAY_ACTOR, ClutterGstOverlayActorPrivate))
+
+struct _ClutterGstOverlayActorPrivate
+{
+  GstElement *source;
+  GstElement *video_sink;
+
+  Display    *display;
+  Window     window;
+};
+
+enum {
+  PROP_0
+};
+
+static void clutter_media_interface_init (ClutterMediaIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (ClutterGstOverlayActor,
                          clutter_gst_overlay_actor,
                          CLUTTER_TYPE_RECTANGLE,
                          G_IMPLEMENT_INTERFACE (CLUTTER_TYPE_MEDIA,
-                                                clutter_media_init));
+                                                clutter_media_interface_init));
 
 static void
-clutter_media_init (ClutterMediaIface *iface)
+clutter_gst_overlay_actor_show (ClutterActor *self,
+                                gpointer user_data)
 {
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  XMapWindow (priv->display, priv->window);
+}
+
+static void
+clutter_gst_overlay_actor_hide (ClutterActor *self,
+                                gpointer user_data)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  XUnmapWindow (priv->display, priv->window);
+}
+
+static void
+clutter_gst_overlay_actor_allocate (ClutterActor *self,
+                                    const ClutterActorBox *box,
+                                    ClutterAllocationFlags flags,
+                                    gpointer user_data)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  XMoveResizeWindow (priv->display, priv->window,
+                     box->x1, box->y1,
+                     box->x2 - box->x1,
+                     box->y2 - box->y1);
+
+  gst_x_overlay_expose (GST_X_OVERLAY (priv->video_sink));
+}
+
+static void
+clutter_gst_overlay_actor_parent_set (ClutterActor *self,
+                                      ClutterActor *old_parent,
+                                      gpointer user_data)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  ClutterStage *stage_new_parent = CLUTTER_STAGE (clutter_actor_get_stage (self));
+
+  Window window_new_parent = clutter_x11_get_stage_window (stage_new_parent);
+
+  XReparentWindow (priv->display, priv->window,
+                   window_new_parent, 0, 0);
+}
+
+static void
+clutter_media_interface_init (ClutterMediaIface *iface)
+{
+}
+
+static void
+clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
+{
+  self->priv = CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE (self);
+}
+
+static void
+clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
+{
+  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+  ClutterActorClass *actor_class = CLUTTER_ACTOR_CLASS (klass);
+  GParamSpec *pspec;
+
+  g_type_class_add_private (klass, sizeof (ClutterGstOverlayActorPrivate));
+}
+
+static gboolean
+bus_call (GstBus *bus,
+          GstMessage *msg,
+          gpointer data)
+{
+  switch (GST_MESSAGE_TYPE (msg)) {
+
+  case GST_MESSAGE_EOS: {
+    g_print ("End of stream\n");
+    break;
+  }
+
+  case GST_MESSAGE_ERROR: {
+    gchar *debug;
+    GError *error;
+
+    gst_message_parse_error (msg, &error, &debug);
+    g_free (debug);
+
+    g_printerr ("Error: %s\n", error->message);
+    g_error_free (error);
+    break;
+  }
+
+  default:
+    break;
+  }
+
+  return TRUE;
+}
+
+ClutterActor *
+clutter_gst_overlay_actor_new (void)
+{
+  ClutterActor *actor = g_object_new (CLUTTER_TYPE_GST_OVERLAY_ACTOR, NULL);
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (actor)->priv;
+
+  GstElement *source;
+  GstElement *video_sink;
+  GstBus *bus;
+
+  Display *display = priv->display = (Display*)clutter_x11_get_default_display ();
+  Window rootwindow = clutter_x11_get_root_window ();
+  int screen = clutter_x11_get_default_screen ();
+  Window window;
+
+  /* Used for creating X-window
+     independent of the window-manager */
+  XSetWindowAttributes attributes;
+  attributes.override_redirect = True;
+  attributes.background_pixel = BlackPixel(display, screen);
+  priv->window = window = XCreateWindow (display, rootwindow, 0, 0, 1, 1, 0, 0, 0, 0,
+                                         CWBackPixel | CWOverrideRedirect, &attributes);
+
+  XSync (display, FALSE);
+
+  priv->source     = source     = gst_element_factory_make ("playbin2",
+                                                            "pipeline");
+  priv->video_sink = video_sink = gst_element_factory_make ("ximagesink",
+                                                            "window");
+
+  bus = gst_pipeline_get_bus (GST_PIPELINE (source));
+  gst_bus_add_watch (bus, bus_call, NULL);
+  gst_object_unref (bus);
+
+  g_signal_connect (actor, "show", G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
+  g_signal_connect (actor, "hide", G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
+  g_signal_connect (actor, "allocation-changed", G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
+  g_signal_connect (actor, "parent-set", G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
+
+  gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (video_sink), window);
+
+  g_object_set (G_OBJECT (source), "video-sink", video_sink, NULL);
+
+  return actor;
+}
+
+ClutterActor *
+clutter_gst_overlay_actor_new_with_uri (const gchar *uri)
+{
+  ClutterActor *actor = clutter_gst_overlay_actor_new ();
+
+  clutter_gst_overlay_actor_set_uri (CLUTTER_GST_OVERLAY_ACTOR (actor), uri);
+
+  return actor;
+}
+
+void
+clutter_gst_overlay_actor_set_uri (ClutterGstOverlayActor *self,
+                                   const gchar *uri)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_set (G_OBJECT (priv->source), "uri", uri, NULL);
+}
+
+void
+clutter_gst_overlay_actor_play (ClutterGstOverlayActor *self)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  gst_element_set_state (priv->source, GST_STATE_PLAYING);
+}
+
+void
+clutter_gst_overlay_actor_pause (ClutterGstOverlayActor *self)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  gst_element_set_state (priv->source, GST_STATE_PAUSED);
 }

@@ -4,6 +4,7 @@
  * Clutter actor controlling GStreamer window.
  *
  * Authored By Viatcheslav Gachkaylo  <vgachkaylo@crystalnix.com>
+ *             Vadim Zakondyrin       <thekondr@crystalnix.com>
  *
  * Copyright (C) 2011 Crystalnix
  *
@@ -28,6 +29,7 @@
 
 #include <glib-object.h>
 #include <clutter/clutter.h>
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 
@@ -36,19 +38,19 @@ G_BEGIN_DECLS
 #define CLUTTER_GST_OVERLAY_ACTOR(obj) \
 	(G_TYPE_CHECK_INSTANCE_CAST ((obj), \
 	CLUTTER_TYPE_GST_OVERLAY_ACTOR, ClutterGstOverlayActor))
-	
+
 #define CLUTTER_GST_OVERLAY_ACTOR_CLASS(klass) \
 	(G_TYPE_CHECK_CLASS_CAST ((klass), \
 	CLUTTER_TYPE_GST_OVERLAY_ACTOR, ClutterGstOverlayActorClass))
-	
+
 #define CLUTTER_IS_GST_OVERLAY_ACTOR(obj) \
   (G_TYPE_CHECK_INSTANCE_TYPE ((obj), \
 	CLUTTER_TYPE_GST_OVERLAY_ACTOR))
-	
+
 #define CLUTTER_IS_GST_OVERLAY_ACTOR_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE ((klass), \
 	CLUTTER_TYPE_GST_OVERLAY_ACTOR))
-	
+
 #define CLUTTER_GST_OVERLAY_ACTOR_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
 	CLUTTER_TYPE_GST_OVERLAY_ACTOR, ClutterGstOverlayActorClass))
@@ -59,15 +61,15 @@ typedef struct _ClutterGstOverlayActorPrivate  ClutterGstOverlayActorPrivate;
 
 struct _ClutterGstOverlayActor
 {
-	ClutterRectangle                parent;
-	ClutterGstOverlayActorPrivate  *priv;
+  ClutterRectangle                parent;
+  ClutterGstOverlayActorPrivate  *priv;
 };
 
 struct _ClutterGstOverlayActorClass
 {
-	ClutterRectangleClass parent_class;
-	
-	/* Future padding */
+  ClutterRectangleClass parent_class;
+
+  /* Future padding */
   void (* _clutter_reserved1) (void);
   void (* _clutter_reserved2) (void);
   void (* _clutter_reserved3) (void);
@@ -77,7 +79,11 @@ struct _ClutterGstOverlayActorClass
 };
 
 GType                      clutter_gst_overlay_actor_get_type                      (void) G_GNUC_CONST;
-ClutterActor *             clutter_gst_overlay_actor_new_with_uri									 (const gchar *uri);
+ClutterActor *             clutter_gst_overlay_actor_new                           (void);
+ClutterActor *             clutter_gst_overlay_actor_new_with_uri                  (const gchar *uri);
+void                       clutter_gst_overlay_actor_set_uri                       (ClutterGstOverlayActor *self, const char *uri);
+void                       clutter_gst_overlay_actor_play                          (ClutterGstOverlayActor *self);
+void                       clutter_gst_overlay_actor_pause                         (ClutterGstOverlayActor *self);
 
 G_END_DECLS
 
