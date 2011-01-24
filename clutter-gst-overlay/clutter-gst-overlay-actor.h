@@ -81,7 +81,6 @@ struct _ClutterGstOverlayActorClass
 GType                      clutter_gst_overlay_actor_get_type                      (void) G_GNUC_CONST;
 ClutterActor *             clutter_gst_overlay_actor_new                           (void);
 ClutterActor *             clutter_gst_overlay_actor_new_with_uri                  (const gchar *uri);
-void                       clutter_gst_overlay_actor_set_uri                       (ClutterGstOverlayActor *self, const char *uri);
 void                       clutter_gst_overlay_actor_play                          (ClutterGstOverlayActor *self);
 void                       clutter_gst_overlay_actor_pause                         (ClutterGstOverlayActor *self);
 

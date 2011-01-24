@@ -45,7 +45,17 @@ struct _ClutterGstOverlayActorPrivate
 };
 
 enum {
-  PROP_0
+  PROP_0,
+
+  PROP_AUDIO_VOLUME,
+  PROP_BUFFER_FILL,
+  PROP_CAN_SEEK,
+  PROP_DURATION,
+  PROP_PLAYING,
+  PROP_PROGRESS,
+  PROP_SUBTITLE_FONT_NAME,
+  PROP_SUBTITLE_URI,
+  PROP_URI
 };
 
 static void clutter_media_interface_init (ClutterMediaIface *iface);
@@ -102,6 +112,164 @@ clutter_gst_overlay_actor_parent_set (ClutterActor *self,
 
   XReparentWindow (priv->display, priv->window,
                    window_new_parent, 0, 0);
+}
+
+static void
+set_audio_volume (ClutterGstOverlayActor *self,
+                  gdouble volume)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_set (G_OBJECT (priv->pipeline), "volume", volume, NULL);
+}
+
+static gdouble
+get_audio_volume (ClutterGstOverlayActor *self)
+{
+  gdouble volume;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_get (G_OBJECT (priv->pipeline), "volume", &volume, NULL);
+
+  return volume;
+}
+
+static void
+set_uri (ClutterGstOverlayActor *self,
+         const gchar *uri)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_set (G_OBJECT (priv->pipeline), "uri", uri, NULL);
+}
+
+static gchar *
+get_uri (ClutterGstOverlayActor *self)
+{
+  gchar *uri;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_get (G_OBJECT (priv->pipeline), "uri", &uri, NULL);
+
+  return uri;
+}
+
+static gboolean
+test_uri (ClutterGstOverlayActor *self)
+{
+  gboolean result = FALSE;
+
+  gchar *uri = get_uri (self);
+
+  if (uri)
+    result = TRUE;
+
+  g_free (uri);
+
+  return result;
+}
+
+static void
+set_playing (ClutterGstOverlayActor *self,
+             gboolean playing)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  if (test_uri (self))
+    {
+      GstStateChangeReturn state_change = 
+        gst_element_set_state (priv->pipeline,
+                               playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
+
+      g_return_if_fail (state_change == GST_STATE_CHANGE_SUCCESS);
+    }
+  else
+    {
+      if (playing)
+        g_warning ("Unable to start playing: no URI is set\n");
+    }
+}
+
+static gboolean
+get_playing (ClutterGstOverlayActor *self)
+{
+  gboolean playing;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  GstState state, pending;
+
+  gst_element_get_state (priv->pipeline, &state, &pending, 0);
+
+  playing = pending ? (pending == GST_STATE_PLAYING) :
+                      (state   == GST_STATE_PLAYING);
+
+  return playing;
+}
+
+static void
+set_progress (ClutterGstOverlayActor *self,
+              gdouble progress)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  if (test_uri (self))
+    {
+      gboolean result;
+
+      result = gst_element_seek_simple (priv->pipeline, GST_FORMAT_PERCENT,
+                                        GST_SEEK_FLAG_FLUSH | 
+                                        GST_SEEK_FLAG_KEY_UNIT,
+                                        progress * GST_FORMAT_PERCENT_SCALE);
+
+      if (!result)
+        g_warning ("Unable to set progress\n");
+    }
+  else
+    g_warning ("Unable to set progress: no URI is set\n");
+}
+
+static gdouble
+get_progress (ClutterGstOverlayActor *self)
+{
+  gint64 progress;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gboolean result;
+  GstFormat format = GST_FORMAT_PERCENT;
+
+  result = gst_element_query_position (priv->pipeline, &format, &progress);
+
+  if (!result)
+    {
+      g_warning ("Unable to get progress\n");
+      return -1;
+    }
+
+  if (format != GST_FORMAT_PERCENT)
+    {
+      g_warning ("It is not format progress\n");
+      return -1;
+    }
+
+  return (gdouble)progress/(gdouble)GST_FORMAT_PERCENT_SCALE;
+}
+
+static void
+set_subtitle_uri (ClutterGstOverlayActor *self,
+                  const gchar *uri)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_set (G_OBJECT (priv->pipeline), "suburi", uri, NULL);
+}
+
+static gchar *
+get_subtitle_uri (ClutterGstOverlayActor *self)
+{
+  gchar *uri;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_get (G_OBJECT (self), "suburi", &uri, NULL);
+
+  return uri;
 }
 
 static void
@@ -207,20 +375,9 @@ clutter_gst_overlay_actor_new_with_uri (const gchar *uri)
 {
   ClutterActor *actor = clutter_gst_overlay_actor_new ();
 
-  clutter_gst_overlay_actor_set_uri (CLUTTER_GST_OVERLAY_ACTOR (actor), uri);
+  set_uri (CLUTTER_GST_OVERLAY_ACTOR (actor), uri);
 
   return actor;
-}
-
-void
-clutter_gst_overlay_actor_set_uri (ClutterGstOverlayActor *self,
-                                   const gchar *uri)
-{
-  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
-
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
-  g_object_set (G_OBJECT (priv->pipeline), "uri", uri, NULL);
 }
 
 void
