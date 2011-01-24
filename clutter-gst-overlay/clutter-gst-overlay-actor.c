@@ -37,7 +37,7 @@
 
 struct _ClutterGstOverlayActorPrivate
 {
-  GstElement *source;
+  GstElement *pipeline;
   GstElement *video_sink;
 
   Display    *display;
@@ -162,7 +162,7 @@ clutter_gst_overlay_actor_new (void)
   ClutterActor *actor = g_object_new (CLUTTER_TYPE_GST_OVERLAY_ACTOR, NULL);
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (actor)->priv;
 
-  GstElement *source;
+  GstElement *pipeline;
   GstElement *video_sink;
   GstBus *bus;
 
@@ -181,12 +181,12 @@ clutter_gst_overlay_actor_new (void)
 
   XSync (display, FALSE);
 
-  priv->source     = source     = gst_element_factory_make ("playbin2",
+  priv->pipeline   = pipeline   = gst_element_factory_make ("playbin2",
                                                             "pipeline");
   priv->video_sink = video_sink = gst_element_factory_make ("ximagesink",
                                                             "window");
 
-  bus = gst_pipeline_get_bus (GST_PIPELINE (source));
+  bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
   gst_bus_add_watch (bus, bus_call, NULL);
   gst_object_unref (bus);
 
@@ -197,7 +197,7 @@ clutter_gst_overlay_actor_new (void)
 
   gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (video_sink), window);
 
-  g_object_set (G_OBJECT (source), "video-sink", video_sink, NULL);
+  g_object_set (G_OBJECT (pipeline), "video-sink", video_sink, NULL);
 
   return actor;
 }
@@ -220,7 +220,7 @@ clutter_gst_overlay_actor_set_uri (ClutterGstOverlayActor *self,
 
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
 
-  g_object_set (G_OBJECT (priv->source), "uri", uri, NULL);
+  g_object_set (G_OBJECT (priv->pipeline), "uri", uri, NULL);
 }
 
 void
@@ -230,7 +230,7 @@ clutter_gst_overlay_actor_play (ClutterGstOverlayActor *self)
 
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
 
-  gst_element_set_state (priv->source, GST_STATE_PLAYING);
+  gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
 }
 
 void
@@ -240,5 +240,5 @@ clutter_gst_overlay_actor_pause (ClutterGstOverlayActor *self)
 
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
 
-  gst_element_set_state (priv->source, GST_STATE_PAUSED);
+  gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
 }
