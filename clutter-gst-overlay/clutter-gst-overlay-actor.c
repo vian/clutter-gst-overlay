@@ -21,7 +21,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
+n * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
@@ -151,6 +151,8 @@ get_uri (ClutterGstOverlayActor *self)
 
   g_object_get (G_OBJECT (priv->pipeline), "uri", &uri, NULL);
 
+  g_print ("%s\n", uri);
+
   return uri;
 }
 
@@ -166,7 +168,7 @@ test_uri (ClutterGstOverlayActor *self)
 
   g_free (uri);
 
-  return result;
+  return TRUE;//result;
 }
 
 static void
@@ -181,7 +183,7 @@ set_playing (ClutterGstOverlayActor *self,
         gst_element_set_state (priv->pipeline,
                                playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
 
-      g_return_if_fail (state_change == GST_STATE_CHANGE_SUCCESS);
+      g_return_if_fail (state_change != GST_STATE_CHANGE_FAILURE);
     }
   else
     {
@@ -245,7 +247,7 @@ get_progress (ClutterGstOverlayActor *self)
 
   if (format != GST_FORMAT_PERCENT)
     {
-      g_warning ("It is not format progress\n");
+      g_warning ("It is not format of the progress\n");
       return -1;
     }
 
@@ -267,9 +269,156 @@ get_subtitle_uri (ClutterGstOverlayActor *self)
   gchar *uri;
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
 
-  g_object_get (G_OBJECT (self), "suburi", &uri, NULL);
+  g_object_get (G_OBJECT (priv->pipeline), "suburi", &uri, NULL);
 
   return uri;
+}
+
+static void
+set_subtitle_font_name (ClutterGstOverlayActor *self,
+                        const gchar *font_name)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+
+  g_object_set (G_OBJECT (priv->pipeline),
+                "subtitle-font-desc", font_name,
+                NULL);
+}
+
+static gchar *
+get_subtitle_font_name (ClutterGstOverlayActor *self)
+{
+  return NULL;
+}
+
+static gdouble
+get_buffer_fill (ClutterGstOverlayActor *self)
+{
+  return 0.0;
+}
+
+static gboolean
+get_can_seek (ClutterGstOverlayActor *self)
+{
+  return FALSE;
+}
+
+static gdouble
+get_duration (ClutterGstOverlayActor *self)
+{
+  gint64 duration;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gboolean result;
+  GstFormat format = GST_FORMAT_TIME;
+
+  result = gst_element_query_duration (priv->pipeline, &format, &duration);
+
+  if (!result)
+    {
+      g_warning ("Unable to get duration\n");
+      return -1;
+    }
+
+  if (format != GST_FORMAT_TIME)
+    {
+      g_warning ("It is not format of the duration\n");
+      return -1;
+    }
+
+  return (gdouble)duration;
+
+}
+
+static void
+clutter_gst_overlay_actor_set_property (GObject      *object,
+                                        guint         property_id,
+                                        const GValue *value,
+                                        GParamSpec   *pspec)
+{
+  ClutterGstOverlayActor *self = CLUTTER_GST_OVERLAY_ACTOR (object);
+
+  switch (property_id)
+    {
+    case PROP_AUDIO_VOLUME:
+      set_audio_volume (self, g_value_get_double (value));
+      break;
+
+    case PROP_PLAYING:
+      set_playing (self, g_value_get_boolean (value));
+      break;
+
+    case PROP_PROGRESS:
+      set_progress (self, g_value_get_double (value));
+      break;
+
+    case PROP_SUBTITLE_FONT_NAME:
+      set_subtitle_font_name (self, g_value_get_string (value));
+      break;
+
+    case PROP_SUBTITLE_URI:
+      set_subtitle_uri (self, g_value_get_string (value));
+      break;
+
+    case PROP_URI:
+      set_uri (self, g_value_get_string (value));
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      break;
+    }
+}
+
+static void
+clutter_gst_overlay_actor_get_property (GObject    *object,
+                                        guint       property_id,
+                                        GValue     *value,
+                                        GParamSpec *pspec)
+{
+  ClutterGstOverlayActor *self = CLUTTER_GST_OVERLAY_ACTOR (object);
+
+  switch (property_id)
+    {
+    case PROP_AUDIO_VOLUME:
+      g_value_set_double (value, get_audio_volume (self));
+      break;
+
+    case PROP_BUFFER_FILL:
+      g_value_set_double (value, get_buffer_fill (self));
+      break;
+
+    case PROP_CAN_SEEK:
+      g_value_set_boolean (value, get_can_seek (self));
+      break;
+
+    case PROP_DURATION:
+      g_value_set_double (value, get_duration (self));
+      break;
+
+    case PROP_PLAYING:
+      g_value_set_boolean (value, get_playing (self));
+      break;
+
+    case PROP_PROGRESS:
+      g_value_set_double (value, get_progress (self));
+      break;
+
+    case PROP_SUBTITLE_FONT_NAME:
+      g_value_set_string (value, get_subtitle_font_name (self));
+      break;
+
+    case PROP_SUBTITLE_URI:
+      g_value_set_string (value, get_subtitle_uri (self));
+      break;
+
+    case PROP_URI:
+      g_value_set_string (value, get_uri (self));
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      break;
+    }
 }
 
 static void
@@ -287,8 +436,47 @@ static void
 clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-  ClutterActorClass *actor_class = CLUTTER_ACTOR_CLASS (klass);
-  GParamSpec *pspec;
+  //  ClutterActorClass *actor_class = CLUTTER_ACTOR_CLASS (klass);
+  //  GParamSpec *pspec;
+
+  gobject_class->set_property = clutter_gst_overlay_actor_set_property;
+  gobject_class->get_property = clutter_gst_overlay_actor_get_property;
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_AUDIO_VOLUME,
+                                    "audio-volume");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_BUFFER_FILL,
+                                    "buffer-fill");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_CAN_SEEK,
+                                    "can-seek");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_DURATION,
+                                    "duration");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_PLAYING,
+                                    "playing");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_PROGRESS,
+                                    "progress");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_SUBTITLE_FONT_NAME,
+                                    "subtitle-font-name");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_SUBTITLE_URI,
+                                    "subtitle-uri");
+
+  g_object_class_override_property (gobject_class,
+                                    PROP_URI,
+                                    "uri");
 
   g_type_class_add_private (klass, sizeof (ClutterGstOverlayActorPrivate));
 }
@@ -324,6 +512,22 @@ bus_call (GstBus *bus,
   return TRUE;
 }
 
+static void
+restart_video (GstElement *playbin,
+               gpointer    user_data)
+{
+  ClutterGstOverlayActor *gst_actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+  gchar *uri = get_uri (gst_actor);
+  gdouble duration = get_duration (gst_actor);
+  //  set_uri (gst_actor, uri);
+  g_print ("Restarting... %s %g\n", uri, GST_TIME_AS_SECONDS (duration));
+
+  g_free (uri);
+  gst_element_set_state (playbin, GST_STATE_PAUSED);
+  set_progress (gst_actor, 0.5);
+  gst_element_set_state (playbin, GST_STATE_PLAYING);
+}
+
 ClutterActor *
 clutter_gst_overlay_actor_new (void)
 {
@@ -344,8 +548,10 @@ clutter_gst_overlay_actor_new (void)
   XSetWindowAttributes attributes;
   attributes.override_redirect = True;
   attributes.background_pixel = BlackPixel(display, screen);
-  priv->window = window = XCreateWindow (display, rootwindow, 0, 0, 1, 1, 0, 0, 0, 0,
-                                         CWBackPixel | CWOverrideRedirect, &attributes);
+  priv->window = window = XCreateWindow (display, rootwindow,
+                                         0, 0, 1, 1, 0, 0, 0, 0,
+                                         CWBackPixel | CWOverrideRedirect,
+                                         &attributes);
 
   XSync (display, FALSE);
 
@@ -358,10 +564,16 @@ clutter_gst_overlay_actor_new (void)
   gst_bus_add_watch (bus, bus_call, NULL);
   gst_object_unref (bus);
 
-  g_signal_connect (actor, "show", G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
-  g_signal_connect (actor, "hide", G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
-  g_signal_connect (actor, "allocation-changed", G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
-  g_signal_connect (actor, "parent-set", G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
+  g_signal_connect (actor, "show",
+                    G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
+  g_signal_connect (actor, "hide",
+                    G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
+  g_signal_connect (actor, "allocation-changed",
+                    G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
+  g_signal_connect (actor, "parent-set",
+                    G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
+  g_signal_connect (priv->pipeline, "about-to-finish",
+                    G_CALLBACK (restart_video), actor);
 
   gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (video_sink), window);
 
