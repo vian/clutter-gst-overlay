@@ -42,11 +42,12 @@ int main (int argc, char *argv[])
 {
   ClutterColor stage_color = { 0x00, 0xFF, 0x00, 0xFF };
 
-  /*  if (argc != 2) {
-    g_printerr ("Usage: %s <uri to video-file>\n", argv[0]);
+  if (argc != 2 && argc != 3) {
+    g_printerr ("Usage: %s <uri to video-file> <uri to subtitle-file>\n",
+                argv[0]);
     return -1;
   }
-  */
+
   clutter_init (&argc, &argv);
   gst_init (&argc, &argv);
 
@@ -58,7 +59,7 @@ int main (int argc, char *argv[])
   clutter_actor_set_size (rect, 440, 280);
   clutter_actor_set_position (rect, 100, 100);
 
-  //  clutter_media_set_filename (CLUTTER_MEDIA (rect), "/home/kondr/test.avi");
+  //  clutter_media_set_filename (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_uri (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
 
