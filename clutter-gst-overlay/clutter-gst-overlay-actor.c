@@ -576,9 +576,7 @@ clutter_gst_overlay_actor_play (ClutterGstOverlayActor *self)
 {
   g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
 
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
-  gst_element_set_state (priv->pipeline, GST_STATE_PLAYING);
+  set_playing (self, TRUE);
 }
 
 void
@@ -586,7 +584,35 @@ clutter_gst_overlay_actor_pause (ClutterGstOverlayActor *self)
 {
   g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
 
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  set_playing (self, FALSE);
+}
 
-  gst_element_set_state (priv->pipeline, GST_STATE_PAUSED);
+void
+clutter_gst_overlay_actor_set_subtitle_flag (ClutterGstOverlayActor *self,
+                                             gboolean                flag)
+{
+  GstPlayFlags flags;
+
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+
+  g_object_get (G_OBJECT (self->priv->pipeline), "flags", &flags, NULL);
+
+  if (on)
+    flags |= GST_PLAY_FLAG_TEXT;
+  else
+    flags &= ~GST_PLAY_FLAG_TEXT;
+
+  g_object_set (G_OBJECT (self->priv->pipeline), "flags", flags, NULL);
+}
+
+gboolean
+clutter_gst_overlay_actor_get_subtitle_flag (ClutterGstOverlayActor *self)
+{
+  GstPlayFlags flags;
+
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+
+  g_object_get (G_OBJECT (self->priv->pipeline), "flags", &flags, NULL);
+
+  return !(!(flags & GST_PLAY_FLAG_TEXT));
 }
