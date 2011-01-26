@@ -21,7 +21,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  *
-n * You should have received a copy of the GNU Lesser General Public
+ * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
@@ -586,7 +586,7 @@ clutter_gst_overlay_actor_pause (ClutterGstOverlayActor *self)
 
   set_playing (self, FALSE);
 }
-
+/*
 void
 clutter_gst_overlay_actor_set_subtitle_flag (ClutterGstOverlayActor *self,
                                              gboolean                flag)
@@ -616,3 +616,4 @@ clutter_gst_overlay_actor_get_subtitle_flag (ClutterGstOverlayActor *self)
 
   return !(!(flags & GST_PLAY_FLAG_TEXT));
 }
+*/
