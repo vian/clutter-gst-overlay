@@ -207,6 +207,31 @@ get_playing (ClutterGstOverlayActor *self)
   return playing;
 }
 
+static gdouble
+get_duration (ClutterGstOverlayActor *self)
+{
+  gint64 duration;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gboolean result;
+  GstFormat format = GST_FORMAT_TIME;
+
+  result = gst_element_query_duration (priv->pipeline, &format, &duration);
+
+  if (!result)
+    {
+      g_warning ("Unable to get duration\n");
+      return -1;
+    }
+
+  if (format != GST_FORMAT_TIME)
+    {
+      g_warning ("It is not format of the duration\n");
+      return -1;
+    }
+
+  return (gdouble)duration;
+}
+
 static void
 set_progress (ClutterGstOverlayActor *self,
               gdouble progress)
@@ -217,10 +242,10 @@ set_progress (ClutterGstOverlayActor *self,
     {
       gboolean result;
 
-      result = gst_element_seek_simple (priv->pipeline, GST_FORMAT_PERCENT,
+      result = gst_element_seek_simple (priv->pipeline, GST_FORMAT_TIME,
                                         GST_SEEK_FLAG_FLUSH | 
                                         GST_SEEK_FLAG_KEY_UNIT,
-                                        progress * GST_FORMAT_PERCENT_SCALE);
+                                        progress * get_duration (self));
 
       if (!result)
         g_warning ("Unable to set progress\n");
@@ -235,7 +260,7 @@ get_progress (ClutterGstOverlayActor *self)
   gint64 progress;
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
   gboolean result;
-  GstFormat format = GST_FORMAT_PERCENT;
+  GstFormat format = GST_FORMAT_TIME;
 
   result = gst_element_query_position (priv->pipeline, &format, &progress);
 
@@ -245,13 +270,13 @@ get_progress (ClutterGstOverlayActor *self)
       return -1;
     }
 
-  if (format != GST_FORMAT_PERCENT)
+  if (format != GST_FORMAT_TIME)
     {
       g_warning ("It is not format of the progress\n");
       return -1;
     }
 
-  return (gdouble)progress/(gdouble)GST_FORMAT_PERCENT_SCALE;
+  return (gdouble)progress / get_duration (self);
 }
 
 static void
@@ -301,32 +326,6 @@ static gboolean
 get_can_seek (ClutterGstOverlayActor *self)
 {
   return FALSE;
-}
-
-static gdouble
-get_duration (ClutterGstOverlayActor *self)
-{
-  gint64 duration;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-  gboolean result;
-  GstFormat format = GST_FORMAT_TIME;
-
-  result = gst_element_query_duration (priv->pipeline, &format, &duration);
-
-  if (!result)
-    {
-      g_warning ("Unable to get duration\n");
-      return -1;
-    }
-
-  if (format != GST_FORMAT_TIME)
-    {
-      g_warning ("It is not format of the duration\n");
-      return -1;
-    }
-
-  return (gdouble)duration;
-
 }
 
 static void
