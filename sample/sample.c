@@ -8,28 +8,34 @@ gcc -o sample/sample sample/sample.c clutter-gst-overlay/clutter-gst-overlay-act
 #include <clutter/clutter.h>
 #include "../clutter-gst-overlay/clutter-gst-overlay-actor.h"
 
-/*
-static void
-restart_video (GstElement *playbin,
-               gpointer    user_data)
+void close_actor (ClutterMedia *media,
+                  gpointer user_data)
 {
-  ClutterGstOverlayActor *gst_actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
-  gchar *uri = get_uri (gst_actor);
-  gdouble duration = get_duration (gst_actor);
-  //  set_uri (gst_actor, uri);
-  g_print ("Restarting... %s %g\n", uri, GST_TIME_AS_SECONDS (duration));
-
-  g_free (uri);
-  gst_element_set_state (playbin, GST_STATE_PAUSED);
-  set_progress (gst_actor, 0.5);
-  gst_element_set_state (playbin, GST_STATE_PLAYING);
+  clutter_main_quit ();
 }
-*/
-
-void my_close (ClutterMedia *media,
-            gpointer      user_data)
+      
+gboolean test_uri (gpointer user_data)
 {
-  clutter_media_set_progress (CLUTTER_MEDIA (user_data), 0.0);
+  ClutterMedia *media = CLUTTER_MEDIA (user_data);
+  gchar *uri = clutter_media_get_uri (media);
+  gchar *suburi = clutter_media_get_subtitle_uri (media);
+
+  g_print ("My uri: %s\n", uri);
+  g_print ("My subtitle uri: %s\n", suburi);
+
+  return FALSE;
+}
+
+gboolean test_volume (gpointer user_data)
+{
+  ClutterMedia *media = CLUTTER_MEDIA (user_data);
+  gdouble volume = clutter_media_get_audio_volume (media);
+
+  g_print ("My volume: %g\n", volume);
+
+  clutter_media_set_audio_volume (media, (volume <= 0.5) ? 1.0 : 0.0);
+
+  return TRUE;
 }
 
 int main (int argc, char *argv[])
@@ -52,6 +58,7 @@ int main (int argc, char *argv[])
   clutter_actor_set_size (rect, 440, 280);
   clutter_actor_set_position (rect, 100, 100);
 
+  //  clutter_media_set_filename (CLUTTER_MEDIA (rect), "/home/kondr/test.avi");
   clutter_media_set_uri (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
 
@@ -65,9 +72,14 @@ int main (int argc, char *argv[])
 
   clutter_media_set_playing (CLUTTER_MEDIA (rect), TRUE);
   clutter_media_set_subtitle_font_name (CLUTTER_MEDIA (rect), "Sans bold italic 32");
+  clutter_media_set_audio_volume (CLUTTER_MEDIA (rect), 1.0);
+  //  clutter_media_set_progress (CLUTTER_MEDIA (rect), 0.5);
 
   g_signal_connect (CLUTTER_MEDIA (rect), "eos",
-                    G_CALLBACK (my_close), rect);
+                    G_CALLBACK (close_actor), NULL);
+
+  g_timeout_add_seconds (0, test_uri, rect);
+  g_timeout_add_seconds (5, test_volume, rect);
 
   clutter_main ();
 
