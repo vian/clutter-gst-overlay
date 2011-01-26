@@ -430,6 +430,8 @@ static void
 clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
 {
   self->priv = CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE (self);
+
+  
 }
 
 static void
@@ -486,10 +488,12 @@ bus_call (GstBus *bus,
           GstMessage *msg,
           gpointer data)
 {
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (data);
+
   switch (GST_MESSAGE_TYPE (msg)) {
 
   case GST_MESSAGE_EOS: {
-    g_print ("End of stream\n");
+    g_signal_emit_by_name (actor, "eos");
     break;
   }
 
@@ -500,7 +504,8 @@ bus_call (GstBus *bus,
     gst_message_parse_error (msg, &error, &debug);
     g_free (debug);
 
-    g_printerr ("Error: %s\n", error->message);
+    g_signal_emit_by_name (actor, "error", error);
+
     g_error_free (error);
     break;
   }
@@ -510,22 +515,6 @@ bus_call (GstBus *bus,
   }
 
   return TRUE;
-}
-
-static void
-restart_video (GstElement *playbin,
-               gpointer    user_data)
-{
-  ClutterGstOverlayActor *gst_actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
-  gchar *uri = get_uri (gst_actor);
-  gdouble duration = get_duration (gst_actor);
-  //  set_uri (gst_actor, uri);
-  g_print ("Restarting... %s %g\n", uri, GST_TIME_AS_SECONDS (duration));
-
-  g_free (uri);
-  gst_element_set_state (playbin, GST_STATE_PAUSED);
-  set_progress (gst_actor, 0.5);
-  gst_element_set_state (playbin, GST_STATE_PLAYING);
 }
 
 ClutterActor *
@@ -561,7 +550,7 @@ clutter_gst_overlay_actor_new (void)
                                                             "window");
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
-  gst_bus_add_watch (bus, bus_call, NULL);
+  gst_bus_add_watch (bus, bus_call, actor);
   gst_object_unref (bus);
 
   g_signal_connect (actor, "show",
@@ -572,8 +561,6 @@ clutter_gst_overlay_actor_new (void)
                     G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
   g_signal_connect (actor, "parent-set",
                     G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
-  g_signal_connect (priv->pipeline, "about-to-finish",
-                    G_CALLBACK (restart_video), actor);
 
   gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (video_sink), window);
 
