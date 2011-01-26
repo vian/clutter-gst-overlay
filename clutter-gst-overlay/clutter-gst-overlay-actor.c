@@ -421,6 +421,40 @@ clutter_gst_overlay_actor_get_property (GObject    *object,
     }
 }
 
+static gboolean
+bus_call (GstBus *bus,
+          GstMessage *msg,
+          gpointer data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (data);
+
+  switch (GST_MESSAGE_TYPE (msg)) {
+
+  case GST_MESSAGE_EOS: {
+    g_signal_emit_by_name (actor, "eos");
+    break;
+  }
+
+  case GST_MESSAGE_ERROR: {
+    gchar *debug;
+    GError *error;
+
+    gst_message_parse_error (msg, &error, &debug);
+    g_free (debug);
+
+    g_signal_emit_by_name (actor, "error", error);
+
+    g_error_free (error);
+    break;
+  }
+
+  default:
+    break;
+  }
+
+  return TRUE;
+}
+
 static void
 clutter_media_interface_init (ClutterMediaIface *iface)
 {
@@ -429,9 +463,51 @@ clutter_media_interface_init (ClutterMediaIface *iface)
 static void
 clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
 {
-  self->priv = CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE (self);
+  ClutterGstOverlayActorPrivate *priv;
+  self->priv = priv = CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE (self);
 
-  
+  GstElement *pipeline;
+  GstElement *video_sink;
+  GstBus *bus;
+
+  Display *display = priv->display = (Display*)clutter_x11_get_default_display ();
+  Window rootwindow = clutter_x11_get_root_window ();
+  int screen = clutter_x11_get_default_screen ();
+  Window window;
+
+  /* Used for creating X-window
+     independent of the window-manager */
+  XSetWindowAttributes attributes;
+  attributes.override_redirect = True;
+  attributes.background_pixel = BlackPixel(display, screen);
+  priv->window = window = XCreateWindow (display, rootwindow,
+                                         0, 0, 1, 1, 0, 0, 0, 0,
+                                         CWBackPixel | CWOverrideRedirect,
+                                         &attributes);
+
+  XSync (display, FALSE);
+
+  priv->pipeline   = pipeline   = gst_element_factory_make ("playbin2",
+                                                            "pipeline");
+  priv->video_sink = video_sink = gst_element_factory_make ("ximagesink",
+                                                            "window");
+
+  bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
+  gst_bus_add_watch (bus, bus_call, self);
+  gst_object_unref (bus);
+
+  g_signal_connect (self, "show",
+                    G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
+  g_signal_connect (self, "hide",
+                    G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
+  g_signal_connect (self, "allocation-changed",
+                    G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
+  g_signal_connect (self, "parent-set",
+                    G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
+
+  gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (video_sink), window);
+
+  g_object_set (G_OBJECT (pipeline), "video-sink", video_sink, NULL);
 }
 
 static void
@@ -483,100 +559,17 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
   g_type_class_add_private (klass, sizeof (ClutterGstOverlayActorPrivate));
 }
 
-static gboolean
-bus_call (GstBus *bus,
-          GstMessage *msg,
-          gpointer data)
-{
-  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (data);
-
-  switch (GST_MESSAGE_TYPE (msg)) {
-
-  case GST_MESSAGE_EOS: {
-    g_signal_emit_by_name (actor, "eos");
-    break;
-  }
-
-  case GST_MESSAGE_ERROR: {
-    gchar *debug;
-    GError *error;
-
-    gst_message_parse_error (msg, &error, &debug);
-    g_free (debug);
-
-    g_signal_emit_by_name (actor, "error", error);
-
-    g_error_free (error);
-    break;
-  }
-
-  default:
-    break;
-  }
-
-  return TRUE;
-}
-
 ClutterActor *
 clutter_gst_overlay_actor_new (void)
 {
-  ClutterActor *actor = g_object_new (CLUTTER_TYPE_GST_OVERLAY_ACTOR, NULL);
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (actor)->priv;
-
-  GstElement *pipeline;
-  GstElement *video_sink;
-  GstBus *bus;
-
-  Display *display = priv->display = (Display*)clutter_x11_get_default_display ();
-  Window rootwindow = clutter_x11_get_root_window ();
-  int screen = clutter_x11_get_default_screen ();
-  Window window;
-
-  /* Used for creating X-window
-     independent of the window-manager */
-  XSetWindowAttributes attributes;
-  attributes.override_redirect = True;
-  attributes.background_pixel = BlackPixel(display, screen);
-  priv->window = window = XCreateWindow (display, rootwindow,
-                                         0, 0, 1, 1, 0, 0, 0, 0,
-                                         CWBackPixel | CWOverrideRedirect,
-                                         &attributes);
-
-  XSync (display, FALSE);
-
-  priv->pipeline   = pipeline   = gst_element_factory_make ("playbin2",
-                                                            "pipeline");
-  priv->video_sink = video_sink = gst_element_factory_make ("ximagesink",
-                                                            "window");
-
-  bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
-  gst_bus_add_watch (bus, bus_call, actor);
-  gst_object_unref (bus);
-
-  g_signal_connect (actor, "show",
-                    G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
-  g_signal_connect (actor, "hide",
-                    G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
-  g_signal_connect (actor, "allocation-changed",
-                    G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
-  g_signal_connect (actor, "parent-set",
-                    G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
-
-  gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (video_sink), window);
-
-  g_object_set (G_OBJECT (pipeline), "video-sink", video_sink, NULL);
-
-  return actor;
+  return g_object_new (CLUTTER_TYPE_GST_OVERLAY_ACTOR, NULL);
 }
 
 ClutterActor *
 clutter_gst_overlay_actor_new_with_uri (const gchar *uri)
 {
-  ClutterActor *actor = clutter_gst_overlay_actor_new ();
-
-  set_uri (CLUTTER_GST_OVERLAY_ACTOR (actor), uri);
-
-  return actor;
+  return g_object_new (CLUTTER_TYPE_GST_OVERLAY_ACTOR,
+                       "uri", uri, NULL);
 }
 
 void
