@@ -41,7 +41,9 @@ struct _ClutterGstOverlayActorPrivate
   GstElement *video_sink;
 
   Display    *display;
-  Window     window;
+  Window      window;
+
+  gchar      *font_name;
 };
 
 enum {
@@ -305,6 +307,10 @@ set_subtitle_font_name (ClutterGstOverlayActor *self,
 {
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
 
+  g_free (priv->font_name);
+
+  priv->font_name = g_strdup (font_name);
+
   g_object_set (G_OBJECT (priv->pipeline),
                 "subtitle-font-desc", font_name,
                 NULL);
@@ -313,7 +319,7 @@ set_subtitle_font_name (ClutterGstOverlayActor *self,
 static gchar *
 get_subtitle_font_name (ClutterGstOverlayActor *self)
 {
-  return NULL;
+  return self->priv->font_name;
 }
 
 static gdouble
@@ -325,7 +331,16 @@ get_buffer_fill (ClutterGstOverlayActor *self)
 static gboolean
 get_can_seek (ClutterGstOverlayActor *self)
 {
-  return FALSE;
+  gboolean can_seek = FALSE;
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  GstQuery *seeking = gst_query_new_seeking (GST_FORMAT_TIME);
+
+  if (gst_element_query (priv->pipeline, seeking))
+    gst_query_parse_seeking (seeking, NULL, &can_seek, NULL, NULL);
+
+  gst_query_unref (seeking);
+
+  return can_seek;
 }
 
 static void
@@ -490,6 +505,7 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
                                                             "pipeline");
   priv->video_sink = video_sink = gst_element_factory_make ("ximagesink",
                                                             "window");
+  priv->font_name  = NULL;
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
   gst_bus_add_watch (bus, bus_call, self);
