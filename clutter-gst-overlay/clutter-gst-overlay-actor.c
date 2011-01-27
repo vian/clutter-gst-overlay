@@ -69,6 +69,35 @@ G_DEFINE_TYPE_WITH_CODE (ClutterGstOverlayActor,
                                                 clutter_media_interface_init));
 
 static void
+clutter_gst_overlay_actor_dispose (GObject *gobject)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (gobject)->priv;
+
+  if (priv->pipeline)
+    {
+      gst_element_set_state (priv->pipeline, GST_STATE_NULL);
+
+      gst_object_unref (GST_OBJECT (priv->pipeline));
+
+      priv->pipeline = NULL;
+    }
+  // FIXME: We should dispose parent, but it call itself
+  //G_OBJECT_CLASS (clutter_gst_overlay_actor_parent_class)->dispose (gobject);
+}
+
+static void
+clutter_gst_overlay_actor_finalize (GObject *gobject)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (gobject)->priv;
+
+  g_free (priv->font_name);
+
+  XDestroyWindow (priv->display, priv->window);
+
+  G_OBJECT_CLASS (clutter_gst_overlay_actor_parent_class)->finalize (gobject);
+}
+
+static void
 clutter_gst_overlay_actor_show (ClutterActor *self,
                                 gpointer user_data)
 {
@@ -531,7 +560,10 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   //  ClutterActorClass *actor_class = CLUTTER_ACTOR_CLASS (klass);
   //  GParamSpec *pspec;
+  g_type_class_add_private (klass, sizeof (ClutterGstOverlayActorPrivate));
 
+  gobject_class->dispose = clutter_gst_overlay_actor_dispose;
+  gobject_class->finalize = clutter_gst_overlay_actor_finalize;
   gobject_class->set_property = clutter_gst_overlay_actor_set_property;
   gobject_class->get_property = clutter_gst_overlay_actor_get_property;
 
@@ -570,8 +602,6 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
   g_object_class_override_property (gobject_class,
                                     PROP_URI,
                                     "uri");
-
-  g_type_class_add_private (klass, sizeof (ClutterGstOverlayActorPrivate));
 }
 
 ClutterActor *
