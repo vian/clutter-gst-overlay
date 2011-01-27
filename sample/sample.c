@@ -34,6 +34,13 @@ gboolean test_volume (gpointer user_data)
   g_print ("My volume: %g\n", volume);
 
   clutter_media_set_audio_volume (media, (volume <= 0.5) ? 1.0 : 0.0);
+  g_print ("Can seek: ");
+  g_print ((clutter_media_get_can_seek (media)) ? "TRUE" : "FALSE");
+  g_print ("\n");
+
+  gchar *font = clutter_media_get_subtitle_font_name (media);
+  g_print ("My font name: %s\n", font);
+  g_free (font);
 
   return TRUE;
 }
@@ -83,6 +90,8 @@ int main (int argc, char *argv[])
   g_timeout_add_seconds (5, test_volume, rect);
 
   clutter_main ();
+
+  g_object_unref (G_OBJECT (rect));
 
   return 0;
 }
