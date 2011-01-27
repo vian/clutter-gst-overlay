@@ -182,8 +182,6 @@ get_uri (ClutterGstOverlayActor *self)
 
   g_object_get (G_OBJECT (priv->pipeline), "uri", &uri, NULL);
 
-  g_print ("%s\n", uri);
-
   return uri;
 }
 
