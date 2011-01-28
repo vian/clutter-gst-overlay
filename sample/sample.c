@@ -23,10 +23,13 @@ gboolean test_uri (gpointer user_data)
   g_print ("My uri: %s\n", uri);
   g_print ("My subtitle uri: %s\n", suburi);
 
+  g_free (uri);
+  g_free (suburi);
+
   return FALSE;
 }
 
-gboolean test_volume (gpointer user_data)
+gboolean test_func (gpointer user_data)
 {
   ClutterMedia *media = CLUTTER_MEDIA (user_data);
   gdouble volume = clutter_media_get_audio_volume (media);
@@ -41,6 +44,9 @@ gboolean test_volume (gpointer user_data)
   gchar *font = clutter_media_get_subtitle_font_name (media);
   g_print ("My font name: %s\n", font);
   g_free (font);
+
+  gdouble buffer_fill = clutter_media_get_buffer_fill (media);
+  g_print ("Buffer fill: %.2f\n", buffer_fill);
 
   return TRUE;
 }
@@ -87,7 +93,7 @@ int main (int argc, char *argv[])
                     G_CALLBACK (close_actor), NULL);
 
   g_timeout_add_seconds (0, test_uri, rect);
-  g_timeout_add_seconds (5, test_volume, rect);
+  g_timeout_add_seconds (5, test_func, rect);
 
   clutter_main ();
 
