@@ -347,7 +347,7 @@ set_subtitle_font_name (ClutterGstOverlayActor *self,
 static gchar *
 get_subtitle_font_name (ClutterGstOverlayActor *self)
 {
-  return self->priv->font_name;
+  return g_strdup (self->priv->font_name);
 }
 
 static gdouble
@@ -446,15 +446,15 @@ clutter_gst_overlay_actor_get_property (GObject    *object,
       break;
 
     case PROP_SUBTITLE_FONT_NAME:
-      g_value_set_string (value, get_subtitle_font_name (self));
+      g_value_take_string (value, get_subtitle_font_name (self));
       break;
 
     case PROP_SUBTITLE_URI:
-      g_value_set_string (value, get_subtitle_uri (self));
+      g_value_take_string (value, get_subtitle_uri (self));
       break;
 
     case PROP_URI:
-      g_value_set_string (value, get_uri (self));
+      g_value_take_string (value, get_uri (self));
       break;
 
     default:
