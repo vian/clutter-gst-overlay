@@ -36,7 +36,10 @@ gboolean test_func (gpointer user_data)
 
   g_print ("My volume: %g\n", volume);
 
-  clutter_media_set_audio_volume (media, (volume <= 0.5) ? 1.0 : 0.0);
+  //  clutter_media_set_audio_volume (media, (volume <= 0.5) ? 1.0 : 0.0);
+  gboolean is_muted;
+  g_object_get (G_OBJECT (user_data), "mute", &is_muted, NULL);
+  g_object_set (G_OBJECT (user_data), "mute", !is_muted, NULL);
   g_print ("Can seek: ");
   g_print ((clutter_media_get_can_seek (media)) ? "TRUE" : "FALSE");
   g_print ("\n");
@@ -86,7 +89,7 @@ int main (int argc, char *argv[])
 
   clutter_media_set_playing (CLUTTER_MEDIA (rect), TRUE);
   clutter_media_set_subtitle_font_name (CLUTTER_MEDIA (rect), "Sans bold italic 32");
-  clutter_media_set_audio_volume (CLUTTER_MEDIA (rect), 1.0);
+  clutter_media_set_audio_volume (CLUTTER_MEDIA (rect), 0.75);
   //  clutter_media_set_progress (CLUTTER_MEDIA (rect), 0.5);
 
   g_signal_connect (CLUTTER_MEDIA (rect), "eos",
