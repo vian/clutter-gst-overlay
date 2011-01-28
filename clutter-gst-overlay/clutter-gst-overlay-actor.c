@@ -44,6 +44,7 @@ struct _ClutterGstOverlayActorPrivate
   Window      window;
 
   gchar      *font_name;
+  gdouble     buffer_fill;
 };
 
 enum {
@@ -352,7 +353,7 @@ get_subtitle_font_name (ClutterGstOverlayActor *self)
 static gdouble
 get_buffer_fill (ClutterGstOverlayActor *self)
 {
-  return 0.0;
+  return self->priv->buffer_fill;
 }
 
 static gboolean
@@ -486,6 +487,14 @@ bus_call (GstBus *bus,
     g_signal_emit_by_name (actor, "error", error);
 
     g_error_free (error);
+    break;
+  }
+
+  case GST_MESSAGE_BUFFERING: {
+    gint percent;
+
+    gst_message_parse_buffering (msg, &percent);
+    actor->priv->buffer_fill = (double)percent / 100.0;
     break;
   }
 
