@@ -58,7 +58,9 @@ enum {
   PROP_PROGRESS,
   PROP_SUBTITLE_FONT_NAME,
   PROP_SUBTITLE_URI,
-  PROP_URI
+  PROP_URI,
+
+  PROP_MUTE
 };
 
 static void clutter_media_interface_init (ClutterMediaIface *iface);
@@ -405,6 +407,10 @@ clutter_gst_overlay_actor_set_property (GObject      *object,
       set_uri (self, g_value_get_string (value));
       break;
 
+    case PROP_MUTE:
+      clutter_gst_overlay_actor_set_mute (self, g_value_get_boolean (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -455,6 +461,10 @@ clutter_gst_overlay_actor_get_property (GObject    *object,
 
     case PROP_URI:
       g_value_take_string (value, get_uri (self));
+      break;
+
+    case PROP_MUTE:
+      g_value_set_boolean (value, clutter_gst_overlay_actor_get_mute (self));
       break;
 
     default:
@@ -566,7 +576,8 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   //  ClutterActorClass *actor_class = CLUTTER_ACTOR_CLASS (klass);
-  //  GParamSpec *pspec;
+  GParamSpec *pspec;
+
   g_type_class_add_private (klass, sizeof (ClutterGstOverlayActorPrivate));
 
   gobject_class->dispose = clutter_gst_overlay_actor_dispose;
@@ -609,6 +620,14 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
   g_object_class_override_property (gobject_class,
                                     PROP_URI,
                                     "uri");
+
+  pspec = g_param_spec_boolean ("mute",
+                                "Muted",
+                                "Is audio channel muted",
+                                FALSE,
+                                G_PARAM_READWRITE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_MUTE, pspec);
 }
 
 ClutterActor *
@@ -638,6 +657,27 @@ clutter_gst_overlay_actor_pause (ClutterGstOverlayActor *self)
   g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
 
   set_playing (self, FALSE);
+}
+
+void
+clutter_gst_overlay_actor_set_mute (ClutterGstOverlayActor *self,
+                                    gboolean                mute)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+
+  g_object_set (G_OBJECT (self->priv->pipeline), "mute", mute, NULL);
+}
+
+gboolean
+clutter_gst_overlay_actor_get_mute (ClutterGstOverlayActor *self)
+{
+  gboolean is_muted;
+
+  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self), FALSE);
+
+  g_object_get (G_OBJECT (self->priv->pipeline), "mute", &is_muted, NULL);
+
+  return is_muted;
 }
 /*
 void

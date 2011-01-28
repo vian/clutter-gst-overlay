@@ -83,6 +83,8 @@ ClutterActor *             clutter_gst_overlay_actor_new                        
 ClutterActor *             clutter_gst_overlay_actor_new_with_uri                  (const gchar *uri);
 void                       clutter_gst_overlay_actor_play                          (ClutterGstOverlayActor *self);
 void                       clutter_gst_overlay_actor_pause                         (ClutterGstOverlayActor *self);
+void                       clutter_gst_overlay_actor_set_mute                      (ClutterGstOverlayActor *self, gboolean mute);
+gboolean                   clutter_gst_overlay_actor_get_mute                      (ClutterGstOverlayActor *self);
 
 G_END_DECLS
 
