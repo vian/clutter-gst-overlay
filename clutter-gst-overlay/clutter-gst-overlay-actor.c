@@ -119,17 +119,20 @@ clutter_gst_overlay_actor_hide (ClutterActor *self,
 }
 
 static void
-clutter_gst_overlay_actor_allocate (ClutterActor *self,
-                                    const ClutterActorBox *box,
-                                    ClutterAllocationFlags flags,
-                                    gpointer user_data)
+clutter_gst_overlay_actor_paint (ClutterActor *self,
+                                 gpointer user_data)
 {
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gfloat x, y, w, h;
+
+  clutter_actor_get_transformed_position (self, &x, &y);
+
+  clutter_actor_get_transformed_size (self, &w, &h);
+
+  g_print ("Transform: x = %g, y = %g, w = %g, h = %g\n", x, y, w, h);
 
   XMoveResizeWindow (priv->display, priv->window,
-                     box->x1, box->y1,
-                     box->x2 - box->x1,
-                     box->y2 - box->y1);
+                     x, y, w, h);
 
   gst_x_overlay_expose (GST_X_OVERLAY (priv->video_sink));
 }
@@ -561,8 +564,8 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
                     G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
   g_signal_connect (self, "hide",
                     G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
-  g_signal_connect (self, "allocation-changed",
-                    G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
+  g_signal_connect (self, "paint",
+                    G_CALLBACK (clutter_gst_overlay_actor_paint), NULL);
   g_signal_connect (self, "parent-set",
                     G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
 
