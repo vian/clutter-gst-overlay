@@ -84,8 +84,8 @@ clutter_gst_overlay_actor_dispose (GObject *gobject)
 
       priv->pipeline = NULL;
     }
-  // FIXME: We should dispose parent, but it call itself
-  //G_OBJECT_CLASS (clutter_gst_overlay_actor_parent_class)->dispose (gobject);
+
+  G_OBJECT_CLASS (clutter_gst_overlay_actor_parent_class)->dispose (gobject);
 }
 
 static void
