@@ -100,7 +100,7 @@ int main (int argc, char *argv[])
 
   clutter_main ();
 
-  g_object_unref (G_OBJECT (rect));
+  clutter_actor_destroy (rect);
 
   return 0;
 }
