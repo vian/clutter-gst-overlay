@@ -8,10 +8,21 @@ gcc -o sample/sample sample/sample.c clutter-gst-overlay/clutter-gst-overlay-act
 #include <clutter/clutter.h>
 #include "../clutter-gst-overlay/clutter-gst-overlay-actor.h"
 
+ClutterActor *cont;
+
 void close_actor (ClutterMedia *media,
                   gpointer user_data)
 {
   clutter_main_quit ();
+}
+
+gboolean test_allocation (gpointer user_data)
+{
+  gfloat x, y;
+  clutter_actor_get_transformed_position (CLUTTER_ACTOR (user_data), &x, &y);
+  g_print ("X: %g, Y: %g\n", x, y);
+  clutter_actor_reparent (CLUTTER_ACTOR (user_data), cont);
+  return TRUE;
 }
       
 gboolean test_uri (gpointer user_data)
@@ -58,11 +69,11 @@ int main (int argc, char *argv[])
 {
   ClutterColor stage_color = { 0x00, 0xFF, 0x00, 0xFF };
 
-  if (argc != 2 && argc != 3) {
-    g_printerr ("Usage: %s <uri to video-file> <uri to subtitle-file>\n",
-                argv[0]);
-    return -1;
-  }
+  //if (argc != 2 && argc != 3) {
+  //g_printerr ("Usage: %s <uri to video-file> <uri to subtitle-file>\n",
+  //            argv[0]);
+  //return -1;
+  //}
 
   clutter_init (&argc, &argv);
   gst_init (&argc, &argv);
@@ -73,15 +84,15 @@ int main (int argc, char *argv[])
 
   ClutterActor *rect = clutter_gst_overlay_actor_new ();
   clutter_actor_set_size (rect, 440, 280);
-  clutter_actor_set_position (rect, 100, 100);
+  clutter_actor_set_position (rect, 10, 10);
 
   //  clutter_media_set_filename (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_uri (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
 
-  //  ClutterActor *cont = clutter_group_new ();
-  //  clutter_actor_set_position (cont, 200, 200);
-  //  clutter_container_add_actor (CLUTTER_CONTAINER(cont), rect);
+  cont = clutter_group_new ();
+  clutter_actor_set_position (cont, 20, 20);
+  clutter_container_add_actor (CLUTTER_CONTAINER (stage), cont);
 
   clutter_container_add_actor (CLUTTER_CONTAINER (stage), rect);
 
@@ -95,9 +106,9 @@ int main (int argc, char *argv[])
   g_signal_connect (CLUTTER_MEDIA (rect), "eos",
                     G_CALLBACK (close_actor), NULL);
 
-  g_timeout_add_seconds (0, test_uri, rect);
-  g_timeout_add_seconds (5, test_func, rect);
-
+  //  g_timeout_add_seconds (0, test_uri, rect);
+  //  g_timeout_add_seconds (5, test_func, rect);
+  g_timeout_add_seconds (5, test_allocation, rect);
   clutter_main ();
 
   clutter_actor_destroy (rect);
