@@ -22,9 +22,47 @@ gboolean test_allocation (gpointer user_data)
   clutter_actor_get_transformed_position (CLUTTER_ACTOR (user_data), &x, &y);
   g_print ("X: %g, Y: %g\n", x, y);
   clutter_actor_reparent (CLUTTER_ACTOR (user_data), cont);
+
   return TRUE;
 }
-      
+
+gboolean test_subtitles (gpointer user_data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+  gboolean subtitles_flag;
+
+  subtitles_flag = clutter_gst_overlay_actor_get_subtitle_flag (actor);
+  g_print ("Subtitles: %s\n", subtitles_flag ? "On -> Off" : "Off -> On");
+  clutter_gst_overlay_actor_set_subtitle_flag (actor, !subtitles_flag);
+
+  return TRUE;
+}
+
+gboolean test_volume_mute (gpointer user_data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+  gboolean mute_flag;
+
+  mute_flag = clutter_gst_overlay_actor_get_mute (actor);
+  g_print ("Mute: %s\n", mute_flag ? "On -> Off" : "Off -> On");
+  clutter_gst_overlay_actor_set_mute (actor, !mute_flag);
+
+  return TRUE;
+}
+
+gboolean test_volume_level (gpointer user_data)
+{
+  ClutterMedia *media = CLUTTER_MEDIA (user_data);
+  gdouble volume, new_volume;
+
+  volume = clutter_media_get_audio_volume (media);
+  new_volume = (volume <= 0.5) ? 0.25 : 0.75;
+  g_print ("Volume level: %g -> %g\n", volume, new_volume);
+  clutter_media_set_audio_volume (media, new_volume);
+
+  return TRUE;
+}
+
 gboolean test_uri (gpointer user_data)
 {
   ClutterMedia *media = CLUTTER_MEDIA (user_data);
@@ -91,7 +129,7 @@ int main (int argc, char *argv[])
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
 
   cont = clutter_group_new ();
-  clutter_actor_set_position (cont, 20, 20);
+  clutter_actor_set_position (cont, 200, 200);
   clutter_container_add_actor (CLUTTER_CONTAINER (stage), cont);
 
   clutter_container_add_actor (CLUTTER_CONTAINER (stage), rect);
