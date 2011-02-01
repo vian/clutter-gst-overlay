@@ -9,6 +9,8 @@ gcc -o sample/sample sample/sample.c clutter-gst-overlay/clutter-gst-overlay-act
 #include "../clutter-gst-overlay/clutter-gst-overlay-actor.h"
 
 ClutterActor *cont;
+ClutterActor *cont_parent;
+ClutterActor *stage;
 
 void close_actor (ClutterMedia *media,
                   gpointer user_data)
@@ -23,7 +25,7 @@ gboolean test_allocation (gpointer user_data)
   g_print ("X: %g, Y: %g\n", x, y);
   clutter_actor_reparent (CLUTTER_ACTOR (user_data), cont);
 
-  return TRUE;
+  return FALSE;
 }
 
 gboolean test_subtitles (gpointer user_data)
@@ -61,6 +63,23 @@ gboolean test_volume_level (gpointer user_data)
   clutter_media_set_audio_volume (media, new_volume);
 
   return TRUE;
+}
+
+gboolean test_change_parent (gpointer user_data)
+{
+  clutter_actor_reparent (cont, cont_parent);
+
+  return FALSE;
+}
+
+gboolean test_remove_parent (gpointer user_data)
+{
+  clutter_actor_reparent (cont, stage);
+  clutter_actor_set_position (cont, 0, 0);
+  clutter_actor_set_position (CLUTTER_ACTOR (user_data), 35, 35);
+  clutter_actor_set_position (cont_parent, 75, 75);
+
+  return FALSE;
 }
 
 gboolean test_uri (gpointer user_data)
@@ -116,7 +135,7 @@ int main (int argc, char *argv[])
   clutter_init (&argc, &argv);
   gst_init (&argc, &argv);
 
-  ClutterActor *stage = clutter_stage_get_default ();
+  stage = clutter_stage_get_default ();
   clutter_actor_set_size (stage, 640, 480);
   clutter_stage_set_color (CLUTTER_STAGE (stage), &stage_color);
 
@@ -129,8 +148,12 @@ int main (int argc, char *argv[])
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
 
   cont = clutter_group_new ();
-  clutter_actor_set_position (cont, 200, 200);
+  clutter_actor_set_position (cont, 0, 100);
   clutter_container_add_actor (CLUTTER_CONTAINER (stage), cont);
+
+  cont_parent = clutter_group_new ();
+  clutter_actor_set_position (cont_parent, 100, 0);
+  clutter_container_add_actor (CLUTTER_CONTAINER (stage), cont_parent);
 
   clutter_container_add_actor (CLUTTER_CONTAINER (stage), rect);
 
@@ -147,6 +170,8 @@ int main (int argc, char *argv[])
   //  g_timeout_add_seconds (0, test_uri, rect);
   //  g_timeout_add_seconds (5, test_func, rect);
   g_timeout_add_seconds (5, test_allocation, rect);
+  g_timeout_add_seconds (10, test_change_parent, NULL);
+  g_timeout_add_seconds (15, test_remove_parent, rect);
   clutter_main ();
 
   clutter_actor_destroy (rect);
