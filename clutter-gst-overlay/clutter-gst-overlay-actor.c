@@ -132,8 +132,10 @@ clutter_gst_overlay_actor_hide (ClutterActor *self,
 }
 
 static void
-clutter_gst_overlay_actor_paint (ClutterActor *self,
-                                 gpointer user_data)
+clutter_gst_overlay_actor_allocate (ClutterActor *self,
+                                    ClutterActorBox *box,
+                                    ClutterAllocationFlags flags,
+                                    gpointer user_data)
 {
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
   gfloat x, y, w, h;
@@ -141,8 +143,6 @@ clutter_gst_overlay_actor_paint (ClutterActor *self,
   clutter_actor_get_transformed_position (self, &x, &y);
 
   clutter_actor_get_transformed_size (self, &w, &h);
-
-  g_print ("Transform: x = %g, y = %g, w = %g, h = %g\n", x, y, w, h);
 
   XMoveResizeWindow (priv->display, priv->window,
                      x, y, w, h);
@@ -158,10 +158,30 @@ clutter_gst_overlay_actor_parent_set (ClutterActor *self,
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
   ClutterStage *stage_new_parent = CLUTTER_STAGE (clutter_actor_get_stage (self));
 
+  if (!CLUTTER_IS_STAGE (stage_new_parent))
+    return;
+
+  ClutterActor *parent = clutter_actor_get_parent (self);
   Window window_new_parent = clutter_x11_get_stage_window (stage_new_parent);
+
+  g_signal_handlers_disconnect_by_func (self, clutter_gst_overlay_actor_allocate, self);
+  g_signal_handlers_disconnect_by_func (self, clutter_gst_overlay_actor_parent_set, self);
+
+  while (parent)
+    {
+      g_signal_connect_swapped (parent, "parent-set",
+                                G_CALLBACK (clutter_gst_overlay_actor_parent_set), self);
+
+      g_signal_connect_swapped (parent, "allocation-changed",
+                                G_CALLBACK (clutter_gst_overlay_actor_allocate), self);
+
+      parent = clutter_actor_get_parent (parent);
+    }
 
   XReparentWindow (priv->display, priv->window,
                    window_new_parent, 0, 0);
+
+  clutter_gst_overlay_actor_allocate (self, NULL, 0, NULL);
 }
 
 static void
@@ -577,8 +597,8 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
                     G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
   g_signal_connect (self, "hide",
                     G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
-  g_signal_connect (self, "paint",
-                    G_CALLBACK (clutter_gst_overlay_actor_paint), NULL);
+  g_signal_connect (self, "allocation-changed",
+                    G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
   g_signal_connect (self, "parent-set",
                     G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
 
