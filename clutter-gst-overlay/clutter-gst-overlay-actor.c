@@ -695,7 +695,7 @@ clutter_gst_overlay_actor_get_mute (ClutterGstOverlayActor *self)
 
   return is_muted;
 }
-/*
+
 void
 clutter_gst_overlay_actor_set_subtitle_flag (ClutterGstOverlayActor *self,
                                              gboolean                flag)
@@ -706,7 +706,7 @@ clutter_gst_overlay_actor_set_subtitle_flag (ClutterGstOverlayActor *self,
 
   g_object_get (G_OBJECT (self->priv->pipeline), "flags", &flags, NULL);
 
-  if (on)
+  if (flag)
     flags |= GST_PLAY_FLAG_TEXT;
   else
     flags &= ~GST_PLAY_FLAG_TEXT;
@@ -725,4 +725,4 @@ clutter_gst_overlay_actor_get_subtitle_flag (ClutterGstOverlayActor *self)
 
   return !(!(flags & GST_PLAY_FLAG_TEXT));
 }
-*/
+
