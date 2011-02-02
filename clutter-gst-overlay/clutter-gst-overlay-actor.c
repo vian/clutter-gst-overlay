@@ -29,6 +29,7 @@
 
 #include "clutter-gst-overlay-actor.h"
 #include <gst/interfaces/xoverlay.h>
+#include <gst/video/video.h>
 #include <X11/Xlib.h>
 
 #define CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE(obj) \
@@ -474,6 +475,39 @@ get_can_seek (ClutterGstOverlayActor *self)
   return can_seek;
 }
 
+static GstPad*
+get_pad (ClutterGstOverlayActor *self,
+         const gchar            *type_of_pad,
+         gint                    stream)
+{
+  GstPad *pad = NULL;
+
+  g_signal_emit_by_name (self->priv->pipeline, type_of_pad, stream, &pad);
+
+  return pad;
+}
+
+static GstPad*
+get_text_pad (ClutterGstOverlayActor *self,
+              gint                    stream)
+{
+  return get_pad (self, "get-text-pad", stream);
+}
+
+static GstPad*
+get_audio_pad (ClutterGstOverlayActor *self,
+               gint                    stream)
+{
+  return get_pad (self, "get-audio-pad", stream);
+}
+
+static GstPad*
+get_video_pad (ClutterGstOverlayActor *self,
+               gint                    stream)
+{
+  return get_pad (self, "get-video-pad", stream);
+}
+
 static void
 clutter_gst_overlay_actor_set_property (GObject      *object,
                                         guint         property_id,
@@ -902,10 +936,27 @@ clutter_gst_overlay_actor_get_subtitle_flag (ClutterGstOverlayActor *self)
 {
   GstPlayFlags flags;
 
-  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self), FALSE);
 
   g_object_get (G_OBJECT (self->priv->pipeline), "flags", &flags, NULL);
 
   return !(!(flags & GST_PLAY_FLAG_TEXT));
 }
 
+gboolean
+clutter_gst_overlay_actor_get_video_size (ClutterGstOverlayActor *self,
+                                          gint                   *width,
+                                          gint                   *height)
+{
+  gint video_stream = get_current_video (self);
+  GstPad *video_pad = get_video_pad (self, video_stream);
+  gboolean result;
+
+  g_return_val_if_fail (video_pad != NULL, FALSE);
+
+  result = gst_video_get_size (video_pad, width, height);
+
+  gst_object_unref (video_pad);
+
+  return result;
+}

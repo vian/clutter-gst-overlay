@@ -87,6 +87,7 @@ void                       clutter_gst_overlay_actor_set_mute                   
 gboolean                   clutter_gst_overlay_actor_get_mute                      (ClutterGstOverlayActor *self);
 void                       clutter_gst_overlay_actor_set_subtitle_flag             (ClutterGstOverlayActor *self, gboolean flag);
 gboolean                   clutter_gst_overlay_actor_get_subtitle_flag             (ClutterGstOverlayActor *self);
+gboolean                   clutter_gst_overlay_actor_get_video_size                (ClutterGstOverlayActor *self, gint *width, gint *height);
 
 G_END_DECLS
 
