@@ -73,6 +73,12 @@ enum {
   PROP_SUBTITLE_URI,
   PROP_URI,
 
+  PROP_N_TEXT,
+  PROP_N_AUDIO,
+  PROP_N_VIDEO,
+  PROP_CURRENT_TEXT,
+  PROP_CURRENT_AUDIO,
+  PROP_CURRENT_VIDEO,
   PROP_MUTE
 };
 
@@ -115,7 +121,7 @@ clutter_gst_overlay_actor_finalize (GObject *gobject)
 
 static void
 clutter_gst_overlay_actor_show (ClutterActor *self,
-                                gpointer user_data)
+                                gpointer      user_data)
 {
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
 
@@ -124,7 +130,7 @@ clutter_gst_overlay_actor_show (ClutterActor *self,
 
 static void
 clutter_gst_overlay_actor_hide (ClutterActor *self,
-                                gpointer user_data)
+                                gpointer      user_data)
 {
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
 
@@ -153,7 +159,7 @@ clutter_gst_overlay_actor_allocate (ClutterActor *self,
 static void
 clutter_gst_overlay_actor_parent_set (ClutterActor *self,
                                       ClutterActor *old_parent,
-                                      gpointer user_data)
+                                      gpointer      user_data)
 {
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
   ClutterStage *stage_new_parent = CLUTTER_STAGE (clutter_actor_get_stage (self));
@@ -184,42 +190,112 @@ clutter_gst_overlay_actor_parent_set (ClutterActor *self,
   clutter_gst_overlay_actor_allocate (self, NULL, 0, NULL);
 }
 
+static gint
+get_pipeline_int_prop (ClutterGstOverlayActor *self,
+                       const gchar            *prop)
+{
+  gint value = -1;
+
+  g_object_get (G_OBJECT (self->priv->pipeline), prop, &value, NULL);
+
+  return value;
+}
+
+static void
+set_pipeline_int_prop (ClutterGstOverlayActor *self,
+                       const gchar            *prop,
+                       gint                    value)
+{
+  g_object_set (G_OBJECT (self->priv->pipeline), prop, value, NULL);
+}
+
+static gint
+get_n_text (ClutterGstOverlayActor *self)
+{
+  return get_pipeline_int_prop (self, "n-text");
+}
+
+static gint
+get_n_audio (ClutterGstOverlayActor *self)
+{
+  return get_pipeline_int_prop (self, "n-audio");
+}
+
+static gint
+get_n_video (ClutterGstOverlayActor *self)
+{
+  return get_pipeline_int_prop (self, "n-video");
+}
+
+static gint
+get_current_text (ClutterGstOverlayActor *self)
+{
+  return get_pipeline_int_prop (self, "current-text");
+}
+
+static gint
+get_current_audio (ClutterGstOverlayActor *self)
+{
+  return get_pipeline_int_prop (self, "current-audio");
+}
+
+static gint
+get_current_video (ClutterGstOverlayActor *self)
+{
+  return get_pipeline_int_prop (self, "current-video");
+}
+
+static void
+set_current_text (ClutterGstOverlayActor *self,
+                  gint                    stream)
+{
+  set_pipeline_int_prop (self, "current-text", stream);
+}
+
+static void
+set_current_audio (ClutterGstOverlayActor *self,
+                   gint                    stream)
+{
+  set_pipeline_int_prop (self, "current-audio", stream);
+}
+
+static void
+set_current_video (ClutterGstOverlayActor *self,
+                   gint                    stream)
+{
+  set_pipeline_int_prop (self, "current-video", stream);
+}
+
 static void
 set_audio_volume (ClutterGstOverlayActor *self,
-                  gdouble volume)
+                  gdouble                 volume)
 {
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
-  g_object_set (G_OBJECT (priv->pipeline), "volume", volume, NULL);
+  g_object_set (G_OBJECT (self->priv->pipeline), "volume", volume, NULL);
 }
 
 static gdouble
 get_audio_volume (ClutterGstOverlayActor *self)
 {
-  gdouble volume;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gdouble volume = -1;
 
-  g_object_get (G_OBJECT (priv->pipeline), "volume", &volume, NULL);
+  g_object_get (G_OBJECT (self->priv->pipeline), "volume", &volume, NULL);
 
   return volume;
 }
 
 static void
 set_uri (ClutterGstOverlayActor *self,
-         const gchar *uri)
+         const gchar            *uri)
 {
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
-  g_object_set (G_OBJECT (priv->pipeline), "uri", uri, NULL);
+  g_object_set (G_OBJECT (self->priv->pipeline), "uri", uri, NULL);
 }
 
 static gchar *
 get_uri (ClutterGstOverlayActor *self)
 {
-  gchar *uri;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gchar *uri = NULL;
 
-  g_object_get (G_OBJECT (priv->pipeline), "uri", &uri, NULL);
+  g_object_get (G_OBJECT (self->priv->pipeline), "uri", &uri, NULL);
 
   return uri;
 }
@@ -243,12 +319,10 @@ static void
 set_playing (ClutterGstOverlayActor *self,
              gboolean playing)
 {
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
   if (test_uri (self))
     {
       GstStateChangeReturn state_change = 
-        gst_element_set_state (priv->pipeline,
+        gst_element_set_state (self->priv->pipeline,
                                playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
 
       g_return_if_fail (state_change != GST_STATE_CHANGE_FAILURE);
@@ -263,11 +337,10 @@ set_playing (ClutterGstOverlayActor *self,
 static gboolean
 get_playing (ClutterGstOverlayActor *self)
 {
-  gboolean playing;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gboolean playing = FALSE;
   GstState state, pending;
 
-  gst_element_get_state (priv->pipeline, &state, &pending, 0);
+  gst_element_get_state (self->priv->pipeline, &state, &pending, 0);
 
   playing = pending ? (pending == GST_STATE_PLAYING) :
                       (state   == GST_STATE_PLAYING);
@@ -278,12 +351,11 @@ get_playing (ClutterGstOverlayActor *self)
 static gdouble
 get_duration (ClutterGstOverlayActor *self)
 {
-  gint64 duration;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gint64 duration = -1;
   gboolean result;
   GstFormat format = GST_FORMAT_TIME;
 
-  result = gst_element_query_duration (priv->pipeline, &format, &duration);
+  result = gst_element_query_duration (self->priv->pipeline, &format, &duration);
 
   if (!result)
     {
@@ -302,15 +374,13 @@ get_duration (ClutterGstOverlayActor *self)
 
 static void
 set_progress (ClutterGstOverlayActor *self,
-              gdouble progress)
+              gdouble                 progress)
 {
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
   if (test_uri (self))
     {
       gboolean result;
 
-      result = gst_element_seek_simple (priv->pipeline, GST_FORMAT_TIME,
+      result = gst_element_seek_simple (self->priv->pipeline, GST_FORMAT_TIME,
                                         GST_SEEK_FLAG_FLUSH | 
                                         GST_SEEK_FLAG_KEY_UNIT,
                                         progress * get_duration (self));
@@ -325,12 +395,11 @@ set_progress (ClutterGstOverlayActor *self,
 static gdouble
 get_progress (ClutterGstOverlayActor *self)
 {
-  gint64 progress;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gint64 progress = -1;
   gboolean result;
   GstFormat format = GST_FORMAT_TIME;
 
-  result = gst_element_query_position (priv->pipeline, &format, &progress);
+  result = gst_element_query_position (self->priv->pipeline, &format, &progress);
 
   if (!result)
     {
@@ -349,29 +418,26 @@ get_progress (ClutterGstOverlayActor *self)
 
 static void
 set_subtitle_uri (ClutterGstOverlayActor *self,
-                  const gchar *uri)
+                  const gchar            *uri)
 {
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
-  g_object_set (G_OBJECT (priv->pipeline), "suburi", uri, NULL);
+  g_object_set (G_OBJECT (self->priv->pipeline), "suburi", uri, NULL);
 }
 
 static gchar *
 get_subtitle_uri (ClutterGstOverlayActor *self)
 {
-  gchar *uri;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  gchar *uri = NULL;
 
-  g_object_get (G_OBJECT (priv->pipeline), "suburi", &uri, NULL);
+  g_object_get (G_OBJECT (self->priv->pipeline), "suburi", &uri, NULL);
 
   return uri;
 }
 
 static void
 set_subtitle_font_name (ClutterGstOverlayActor *self,
-                        const gchar *font_name)
+                        const gchar            *font_name)
 {
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
+  ClutterGstOverlayActorPrivate *priv = self->priv;
 
   g_free (priv->font_name);
 
@@ -398,10 +464,9 @@ static gboolean
 get_can_seek (ClutterGstOverlayActor *self)
 {
   gboolean can_seek = FALSE;
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
   GstQuery *seeking = gst_query_new_seeking (GST_FORMAT_TIME);
 
-  if (gst_element_query (priv->pipeline, seeking))
+  if (gst_element_query (self->priv->pipeline, seeking))
     gst_query_parse_seeking (seeking, NULL, &can_seek, NULL, NULL);
 
   gst_query_unref (seeking);
@@ -441,6 +506,18 @@ clutter_gst_overlay_actor_set_property (GObject      *object,
 
     case PROP_URI:
       set_uri (self, g_value_get_string (value));
+      break;
+
+    case PROP_CURRENT_TEXT:
+      set_current_text (self, g_value_get_int (value));
+      break;
+
+    case PROP_CURRENT_AUDIO:
+      set_current_audio (self, g_value_get_int (value));
+      break;
+
+    case PROP_CURRENT_VIDEO:
+      set_current_video (self, g_value_get_int (value));
       break;
 
     case PROP_MUTE:
@@ -499,6 +576,30 @@ clutter_gst_overlay_actor_get_property (GObject    *object,
       g_value_take_string (value, get_uri (self));
       break;
 
+    case PROP_N_TEXT:
+      g_value_set_int (value, get_n_text (self));
+      break;
+
+    case PROP_N_AUDIO:
+      g_value_set_int (value, get_n_audio (self));
+      break;
+
+    case PROP_N_VIDEO:
+      g_value_set_int (value, get_n_video (self));
+      break;
+
+    case PROP_CURRENT_TEXT:
+      g_value_set_int (value, get_current_text (self));
+      break;
+
+    case PROP_CURRENT_AUDIO:
+      g_value_set_int (value, get_current_audio (self));
+      break;
+
+    case PROP_CURRENT_VIDEO:
+      g_value_set_int (value, get_current_video (self));
+      break;
+
     case PROP_MUTE:
       g_value_set_boolean (value, clutter_gst_overlay_actor_get_mute (self));
       break;
@@ -510,9 +611,9 @@ clutter_gst_overlay_actor_get_property (GObject    *object,
 }
 
 static gboolean
-bus_call (GstBus *bus,
+bus_call (GstBus     *bus,
           GstMessage *msg,
-          gpointer data)
+          gpointer    data)
 {
   ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (data);
 
@@ -658,6 +759,66 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
   g_object_class_override_property (gobject_class,
                                     PROP_URI,
                                     "uri");
+
+  pspec = g_param_spec_int ("n-text",
+                            "N text",
+                            "Count of subtitle streams",
+                            0,
+                            G_MAXINT,
+                            0,
+                            G_PARAM_READABLE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_N_TEXT, pspec);
+
+  pspec = g_param_spec_int ("n-audio",
+                            "N audio",
+                            "Count of audio streams",
+                            0,
+                            G_MAXINT,
+                            0,
+                            G_PARAM_READABLE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_N_AUDIO, pspec);
+
+  pspec = g_param_spec_int ("n-video",
+                            "N video",
+                            "Count of video streams",
+                            0,
+                            G_MAXINT,
+                            0,
+                            G_PARAM_READABLE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_N_VIDEO, pspec);
+
+  pspec = g_param_spec_int ("current-text",
+                            "Current text",
+                            "Number of current subtitle stream",
+                            -1,
+                            G_MAXINT,
+                            -1,
+                            G_PARAM_READWRITE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_CURRENT_TEXT, pspec);
+
+  pspec = g_param_spec_int ("current-audio",
+                            "Current audio",
+                            "Number of current audio stream",
+                            -1,
+                            G_MAXINT,
+                            -1,
+                            G_PARAM_READWRITE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_CURRENT_AUDIO, pspec);
+
+  pspec = g_param_spec_int ("current-video",
+                            "Current video",
+                            "Number of current video stream",
+                            -1,
+                            G_MAXINT,
+                            -1,
+                            G_PARAM_READWRITE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_CURRENT_VIDEO, pspec);
 
   pspec = g_param_spec_boolean ("mute",
                                 "Muted",
