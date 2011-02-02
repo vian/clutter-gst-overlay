@@ -560,16 +560,18 @@ static void
 clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
 {
   ClutterGstOverlayActorPrivate *priv;
-  self->priv = priv = CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE (self);
 
   GstElement *pipeline;
   GstElement *video_sink;
   GstBus *bus;
 
-  Display *display = priv->display = (Display*)clutter_x11_get_default_display ();
+  Display *display = GINT_TO_POINTER (clutter_x11_get_default_display ());
   Window rootwindow = clutter_x11_get_root_window ();
   int screen = clutter_x11_get_default_screen ();
   Window window;
+
+  self->priv = priv = CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE (self);
+  priv->display = display;
 
   /* Used for creating X-window
      independent of the window-manager */
