@@ -1,6 +1,6 @@
 /* 
 
-gcc -o sample/sample sample/sample.c clutter-gst-overlay/clutter-gst-overlay-actor.c `pkg-config --libs --cflags clutter-1.0 gstreamer-0.10 gstreamer-interfaces-0.10`
+gcc -o sample/sample sample/sample.c clutter-gst-overlay/clutter-gst-overlay-actor.c `pkg-config --libs --cflags clutter-1.0 gstreamer-0.10 gstreamer-interfaces-0.10 gstreamer-video-0.10`
 
  */
 
@@ -97,6 +97,41 @@ gboolean test_uri (gpointer user_data)
   return FALSE;
 }
 
+gboolean test_video_size (gpointer user_data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+  gint width, height;
+
+  clutter_gst_overlay_actor_get_video_size (actor, &width, &height);
+
+  g_print ("Video size: width: %d, height: %d\n", width, height);
+
+  clutter_actor_set_size (CLUTTER_ACTOR (actor), width, height);
+
+  return FALSE;
+}
+
+gboolean test_streams (gpointer user_data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+  gint ct, nt, ca, na, cv, nv;
+
+  g_object_get (G_OBJECT (actor),
+                "current-text", &ct,
+                "n-text", &nt,
+                "current-audio", &ca,
+                "n-audio", &na,
+                "current-video", &cv,
+                "n-video", &nv, NULL);
+
+  g_print ("Subtitle stream: %d / %d\n"
+           "Audio stream:    %d / %d\n"
+           "Video stream:    %d / %d\n",
+           ct, nt, ca, na, cv, nv);
+
+  return FALSE;
+}
+
 gboolean test_func (gpointer user_data)
 {
   ClutterMedia *media = CLUTTER_MEDIA (user_data);
@@ -140,7 +175,7 @@ int main (int argc, char *argv[])
   clutter_stage_set_color (CLUTTER_STAGE (stage), &stage_color);
 
   ClutterActor *rect = clutter_gst_overlay_actor_new ();
-  clutter_actor_set_size (rect, 440, 280);
+  clutter_actor_set_size (rect, 620, 460);
   clutter_actor_set_position (rect, 10, 10);
 
   //  clutter_media_set_filename (CLUTTER_MEDIA (rect), argv[1]);
@@ -169,9 +204,10 @@ int main (int argc, char *argv[])
 
   //  g_timeout_add_seconds (0, test_uri, rect);
   //  g_timeout_add_seconds (5, test_func, rect);
-  g_timeout_add_seconds (5, test_allocation, rect);
-  g_timeout_add_seconds (10, test_change_parent, NULL);
-  g_timeout_add_seconds (15, test_remove_parent, rect);
+  //  g_timeout_add_seconds (5, test_allocation, rect);
+  //  g_timeout_add_seconds (10, test_change_parent, NULL);
+  //  g_timeout_add_seconds (15, test_remove_parent, rect);
+  g_timeout_add_seconds (5, test_streams, rect);
   clutter_main ();
 
   clutter_actor_destroy (rect);
