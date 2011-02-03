@@ -15,7 +15,7 @@ ClutterActor *stage;
 void close_actor (ClutterMedia *media,
                   gpointer user_data)
 {
-  clutter_main_quit ();
+  //  clutter_main_quit ();
 }
 
 gboolean test_allocation (gpointer user_data)
@@ -132,6 +132,53 @@ gboolean test_streams (gpointer user_data)
   return FALSE;
 }
 
+gboolean test_state_changes (gpointer user_data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+  ClutterMedia *media = CLUTTER_MEDIA (user_data);
+  gboolean playing = clutter_media_get_playing (media);
+
+  clutter_media_set_playing (media, !playing);
+
+  return TRUE;
+}
+
+gboolean test_state_last_change (gpointer user_data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+
+  clutter_gst_overlay_actor_stop (actor);
+  //clutter_gst_overlay_actor_play (actor);
+
+  return FALSE;
+}
+
+gboolean test_state (gpointer user_data)
+{
+  ClutterGstOverlayActor *actor = CLUTTER_GST_OVERLAY_ACTOR (user_data);
+  ClutterGstOverlayStates states = clutter_gst_overlay_actor_get_states (actor);
+
+  g_print ("State: ");
+
+  if (states & CLUTTER_GST_OVERLAY_STATE_PLAYING)
+    g_print ("playing ");
+  else
+    g_print ("paused ");
+
+  if (states & CLUTTER_GST_OVERLAY_STATE_LOADING)
+    g_print ("loading ");
+
+  if (states & CLUTTER_GST_OVERLAY_STATE_ENDED)
+    g_print ("ended ");
+
+  if (states == CLUTTER_GST_OVERLAY_STATE_NULL)
+    g_print ("null");
+
+  g_print ("\n");
+
+  return TRUE;
+}
+
 gboolean test_func (gpointer user_data)
 {
   ClutterMedia *media = CLUTTER_MEDIA (user_data);
@@ -207,7 +254,9 @@ int main (int argc, char *argv[])
   //  g_timeout_add_seconds (5, test_allocation, rect);
   //  g_timeout_add_seconds (10, test_change_parent, NULL);
   //  g_timeout_add_seconds (15, test_remove_parent, rect);
-  g_timeout_add_seconds (5, test_streams, rect);
+  g_timeout_add_seconds (5, test_state_changes, rect);
+  //  g_timeout_add_seconds (13, test_state_last_change, rect);
+  g_timeout_add_seconds (1, test_state, rect);
   clutter_main ();
 
   clutter_actor_destroy (rect);
