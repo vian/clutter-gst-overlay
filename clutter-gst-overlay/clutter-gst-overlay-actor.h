@@ -78,16 +78,25 @@ struct _ClutterGstOverlayActorClass
   void (* _clutter_reserved6) (void);
 };
 
+typedef enum {
+  CLUTTER_GST_OVERLAY_STATE_NULL    = (1 << 0),
+  CLUTTER_GST_OVERLAY_STATE_PLAYING = (1 << 1),
+  CLUTTER_GST_OVERLAY_STATE_LOADING = (1 << 2),
+  CLUTTER_GST_OVERLAY_STATE_ENDED   = (1 << 3)
+} ClutterGstOverlayStates;
+
 GType                      clutter_gst_overlay_actor_get_type                      (void) G_GNUC_CONST;
 ClutterActor *             clutter_gst_overlay_actor_new                           (void);
 ClutterActor *             clutter_gst_overlay_actor_new_with_uri                  (const gchar *uri);
 void                       clutter_gst_overlay_actor_play                          (ClutterGstOverlayActor *self);
 void                       clutter_gst_overlay_actor_pause                         (ClutterGstOverlayActor *self);
+void                       clutter_gst_overlay_actor_stop                          (ClutterGstOverlayActor *self);
 void                       clutter_gst_overlay_actor_set_mute                      (ClutterGstOverlayActor *self, gboolean mute);
 gboolean                   clutter_gst_overlay_actor_get_mute                      (ClutterGstOverlayActor *self);
 void                       clutter_gst_overlay_actor_set_subtitle_flag             (ClutterGstOverlayActor *self, gboolean flag);
 gboolean                   clutter_gst_overlay_actor_get_subtitle_flag             (ClutterGstOverlayActor *self);
 gboolean                   clutter_gst_overlay_actor_get_video_size                (ClutterGstOverlayActor *self, gint *width, gint *height);
+ClutterGstOverlayStates    clutter_gst_overlay_actor_get_states                    (ClutterGstOverlayActor *self);
 
 G_END_DECLS
 

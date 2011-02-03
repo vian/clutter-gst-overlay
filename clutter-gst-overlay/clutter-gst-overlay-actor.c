@@ -46,6 +46,8 @@ struct _ClutterGstOverlayActorPrivate
 
   gchar      *font_name;
   gdouble     buffer_fill;
+
+  ClutterGstOverlayStates states;
 };
 
 typedef enum {
@@ -654,6 +656,10 @@ bus_call (GstBus     *bus,
   switch (GST_MESSAGE_TYPE (msg)) {
 
   case GST_MESSAGE_EOS: {
+    actor->priv->states |= CLUTTER_GST_OVERLAY_STATE_ENDED;
+
+    gst_element_set_state (actor->priv->pipeline, GST_STATE_READY);
+
     g_signal_emit_by_name (actor, "eos");
     break;
   }
@@ -665,6 +671,7 @@ bus_call (GstBus     *bus,
     gst_message_parse_error (msg, &error, &debug);
     g_free (debug);
 
+    gst_element_set_state (actor->priv->pipeline, GST_STATE_NULL);
     g_signal_emit_by_name (actor, "error", error);
 
     g_error_free (error);
@@ -673,9 +680,48 @@ bus_call (GstBus     *bus,
 
   case GST_MESSAGE_BUFFERING: {
     gint percent;
+    ClutterGstOverlayActorPrivate *priv = actor->priv;
 
     gst_message_parse_buffering (msg, &percent);
-    actor->priv->buffer_fill = (double)percent / 100.0;
+    priv->buffer_fill = (double)percent / 100.0;
+    
+    if (priv->buffer_fill < 1)
+      priv->states |= CLUTTER_GST_OVERLAY_STATE_LOADING;
+    else
+      priv->states &= ~CLUTTER_GST_OVERLAY_STATE_LOADING;
+
+    break;
+  }
+
+  case GST_MESSAGE_ELEMENT : {
+    if (gst_structure_has_name (msg->structure, "prepare-xwindow-id"))
+      gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (actor->priv->video_sink),
+                                    actor->priv->window);
+    break;
+  }
+
+  case GST_MESSAGE_STATE_CHANGED: {
+    GstState old_state, new_state;
+    GstElement *src = GST_ELEMENT (GST_MESSAGE_SRC (msg));
+
+    if (actor->priv->pipeline != src)
+      return;
+
+    gst_message_parse_state_changed (msg, &old_state, &new_state, NULL);
+
+    if (old_state == GST_STATE_PAUSED &&
+        new_state == GST_STATE_PLAYING)
+      {
+        actor->priv->states |= CLUTTER_GST_OVERLAY_STATE_PLAYING;
+        actor->priv->states &= ~CLUTTER_GST_OVERLAY_STATE_ENDED;
+      }
+
+    if (old_state == GST_STATE_PLAYING &&
+        new_state == GST_STATE_PAUSED)
+      {
+        actor->priv->states &= ~CLUTTER_GST_OVERLAY_STATE_PLAYING;
+      }
+
     break;
   }
 
@@ -725,6 +771,7 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
   priv->video_sink = video_sink = gst_element_factory_make ("ximagesink",
                                                             "window");
   priv->font_name  = NULL;
+  priv->buffer_fill = 1.0;
 
   bus = gst_pipeline_get_bus (GST_PIPELINE (pipeline));
   gst_bus_add_watch (bus, bus_call, self);
@@ -738,8 +785,6 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
                     G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
   g_signal_connect (self, "parent-set",
                     G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
-
-  gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (video_sink), window);
 
   g_object_set (G_OBJECT (pipeline), "video-sink", video_sink, NULL);
 }
@@ -893,6 +938,19 @@ clutter_gst_overlay_actor_pause (ClutterGstOverlayActor *self)
 }
 
 void
+clutter_gst_overlay_actor_stop (ClutterGstOverlayActor *self)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self));
+
+  GstStateChangeReturn state_change;
+  set_playing (self, FALSE);
+  state_change = gst_element_set_state (self->priv->pipeline,
+                                        GST_STATE_READY);
+
+  g_return_if_fail (state_change != GST_STATE_CHANGE_FAILURE);
+}
+
+void
 clutter_gst_overlay_actor_set_mute (ClutterGstOverlayActor *self,
                                     gboolean                mute)
 {
@@ -959,4 +1017,13 @@ clutter_gst_overlay_actor_get_video_size (ClutterGstOverlayActor *self,
   gst_object_unref (video_pad);
 
   return result;
+}
+
+ClutterGstOverlayStates
+clutter_gst_overlay_actor_get_states (ClutterGstOverlayActor *self)
+{
+  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (self),
+                        CLUTTER_GST_OVERLAY_STATE_NULL);
+
+  return self->priv->states;
 }
