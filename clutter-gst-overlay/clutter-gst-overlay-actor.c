@@ -66,6 +66,7 @@ typedef enum {
 enum {
   PROP_0,
 
+  /* For ClutterMedia interface */
   PROP_AUDIO_VOLUME,
   PROP_BUFFER_FILL,
   PROP_CAN_SEEK,
@@ -183,16 +184,28 @@ clutter_gst_overlay_actor_parent_set (ClutterActor *self,
   ClutterActor *parent = clutter_actor_get_parent (self);
   Window window_new_parent = clutter_x11_get_stage_window (stage_new_parent);
 
-  g_signal_handlers_disconnect_by_func (self, clutter_gst_overlay_actor_allocate, self);
-  g_signal_handlers_disconnect_by_func (self, clutter_gst_overlay_actor_parent_set, self);
+  /* We should track all parents for getting 'allocate' signal
+   * for correct allocating X window in stage coordinates
+   * when any parent moved and 'parent_set' signal
+   * for get 'allocate' signal from new parent of any parent
+   */
+
+  g_signal_handlers_disconnect_by_func (self,
+                                        clutter_gst_overlay_actor_allocate,
+                                        self);
+  g_signal_handlers_disconnect_by_func (self,
+                                        clutter_gst_overlay_actor_parent_set,
+                                        self);
 
   while (parent)
     {
       g_signal_connect_swapped (parent, "parent-set",
-                                G_CALLBACK (clutter_gst_overlay_actor_parent_set), self);
+                                G_CALLBACK (clutter_gst_overlay_actor_parent_set),
+                                self);
 
       g_signal_connect_swapped (parent, "allocation-changed",
-                                G_CALLBACK (clutter_gst_overlay_actor_allocate), self);
+                                G_CALLBACK (clutter_gst_overlay_actor_allocate),
+                                self);
 
       parent = clutter_actor_get_parent (parent);
     }
@@ -325,26 +338,19 @@ test_uri (ClutterGstOverlayActor *self)
 
   g_free (uri);
 
-  return TRUE;//result;
+  return result;
 }
 
 static void
 set_playing (ClutterGstOverlayActor *self,
              gboolean playing)
 {
-  if (test_uri (self))
-    {
-      GstStateChangeReturn state_change = 
-        gst_element_set_state (self->priv->pipeline,
-                               playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
+    GstStateChangeReturn state_change = 
+      gst_element_set_state (self->priv->pipeline,
+                             playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
 
-      g_return_if_fail (state_change != GST_STATE_CHANGE_FAILURE);
-    }
-  else
-    {
-      if (playing)
-        g_warning ("Unable to start playing: no URI is set\n");
-    }
+    if (state_change == GST_STATE_CHANGE_FAILURE)
+      g_warning ("Unable to set playing\n");
 }
 
 static gboolean
@@ -360,6 +366,8 @@ get_playing (ClutterGstOverlayActor *self)
 
   return playing;
 }
+
+/* We can't get duration, set/get progress before main loop started */
 
 static gdouble
 get_duration (ClutterGstOverlayActor *self)
