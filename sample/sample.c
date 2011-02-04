@@ -218,16 +218,15 @@ int main (int argc, char *argv[])
   gst_init (&argc, &argv);
 
   stage = clutter_stage_get_default ();
-  clutter_actor_set_size (stage, 640, 480);
   clutter_stage_set_color (CLUTTER_STAGE (stage), &stage_color);
 
   ClutterActor *rect = clutter_gst_overlay_actor_new ();
-  clutter_actor_set_size (rect, 620, 460);
+  clutter_actor_set_size (rect, 480, 270);
   clutter_actor_set_position (rect, 10, 10);
-
   //  clutter_media_set_filename (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_uri (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
+  
 
   cont = clutter_group_new ();
   clutter_actor_set_position (cont, 0, 100);
@@ -244,19 +243,19 @@ int main (int argc, char *argv[])
   clutter_media_set_playing (CLUTTER_MEDIA (rect), TRUE);
   clutter_media_set_subtitle_font_name (CLUTTER_MEDIA (rect), "Sans bold italic 32");
   clutter_media_set_audio_volume (CLUTTER_MEDIA (rect), 0.75);
-  //  clutter_media_set_progress (CLUTTER_MEDIA (rect), 0.5);
 
   g_signal_connect (CLUTTER_MEDIA (rect), "eos",
                     G_CALLBACK (close_actor), NULL);
 
-  //  g_timeout_add_seconds (0, test_uri, rect);
-  //  g_timeout_add_seconds (5, test_func, rect);
-  //  g_timeout_add_seconds (5, test_allocation, rect);
-  //  g_timeout_add_seconds (10, test_change_parent, NULL);
-  //  g_timeout_add_seconds (15, test_remove_parent, rect);
+  g_timeout_add_seconds (0, test_uri, rect);
+  g_timeout_add_seconds (5, test_func, rect);
+  g_timeout_add_seconds (5, test_allocation, rect);
+  g_timeout_add_seconds (10, test_change_parent, NULL);
+  g_timeout_add_seconds (15, test_remove_parent, rect);
   g_timeout_add_seconds (5, test_state_changes, rect);
-  //  g_timeout_add_seconds (13, test_state_last_change, rect);
+  g_timeout_add_seconds (13, test_state_last_change, rect);
   g_timeout_add_seconds (1, test_state, rect);
+
   clutter_main ();
 
   clutter_actor_destroy (rect);
