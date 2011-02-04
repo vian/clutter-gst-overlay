@@ -153,6 +153,16 @@ clutter_gst_overlay_actor_allocate (ClutterActor *self,
 
   clutter_actor_get_transformed_size (self, &w, &h);
 
+  /* In XResizeWindow
+   * if either width or height is zero,
+   * a BadValue error results.
+   */
+  if (w <= 0)
+    w = 1;
+
+  if (h <= 0)
+    h = 1;
+
   XMoveResizeWindow (priv->display, priv->window,
                      x, y, w, h);
 
@@ -787,6 +797,8 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
                     G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
 
   g_object_set (G_OBJECT (pipeline), "video-sink", video_sink, NULL);
+
+  clutter_gst_overlay_actor_allocate (CLUTTER_ACTOR (self), NULL, 0, NULL);
 }
 
 static void
