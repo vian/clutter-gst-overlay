@@ -110,7 +110,7 @@ clutter_gst_overlay_controlled_set_property (GObject      *object,
 }
 
 static void
-clutter_gst_overlay_actor_init (ClutterGstOverlayControlled *self)
+clutter_gst_overlay_controlled_init (ClutterGstOverlayControlled *self)
 {
   ClutterGstOverlayControlledPrivate *priv;
   
