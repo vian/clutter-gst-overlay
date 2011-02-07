@@ -723,7 +723,7 @@ bus_call (GstBus     *bus,
     GstElement *src = GST_ELEMENT (GST_MESSAGE_SRC (msg));
 
     if (actor->priv->pipeline != src)
-      return;
+      break;
 
     gst_message_parse_state_changed (msg, &old_state, &new_state, NULL);
 
