@@ -87,16 +87,22 @@ clutter_gst_overlay_controlled_set_property (GObject      *object,
                                         const GValue *value,
                                         GParamSpec   *pspec)
 {
-  ClutterGstOverlayActor *self = CLUTTER_GST_OVERLAY_ACTOR (object);
+  ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED (object);
 
   switch (property_id)
     {
     case PROP_VIDEO_ACTOR:
-      clutter_gst_overlay_controlled_set_video_actor (self, g_value_get_object (value));
+      clutter_gst_overlay_controlled_set_video_actor
+        (self, 
+         CLUTTER_GST_OVERLAY_ACTOR (g_value_get_object (value)));
       break;
+
     case PROP_CONTROLS_TEXTURE:
-      clutter_gst_overlay_controlled_set_controls_texture (self, g_value_get_object (value));
+      clutter_gst_overlay_controlled_set_controls_texture
+        (self,
+         CLUTTER_TEXTURE (g_value_get_object (value)));
       break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
