@@ -5,6 +5,7 @@
  * and controls view.
  *
  * Authored By Viatcheslav Gachkaylo  <vgachkaylo@crystalnix.com>
+ *             Vadim Zakondyrin       <thekondr@crystalnix.com>
  *
  * Copyright (C) 2011 Crystalnix
  *
@@ -21,7 +22,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library. If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #include "clutter-gst-overlay-controlled.h"
 
 #define CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE(obj) \
@@ -65,10 +66,10 @@ clutter_gst_overlay_controlled_new (ClutterGstOverlayActor *video_actor,
 {
   ClutterLayoutManager *main_layout = clutter_box_layout_new();
   clutter_box_layout_set_vertical(CLUTTER_BOX_LAYOUT(main_layout), TRUE);
-  
+
   return g_object_new (CLUTTER_TYPE_GST_OVERLAY_CONTROLLED,
-                       "layout-manager", main_layout,  
-                       "video-actor", video_actor, 
+                       "layout-manager", main_layout,
+                       "video-actor", video_actor,
                        "controls-texture", controls_texture,
                        NULL);
 }
@@ -86,7 +87,7 @@ clutter_gst_overlay_controlled_get_property (GObject    *object,
     case PROP_VIDEO_ACTOR:
       g_value_set_object (value, clutter_gst_overlay_controlled_get_video_actor (self));
       break;
-      
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -105,7 +106,7 @@ clutter_gst_overlay_controlled_set_property (GObject      *object,
     {
     case PROP_VIDEO_ACTOR:
       clutter_gst_overlay_controlled_set_video_actor
-        (self, 
+        (self,
          CLUTTER_GST_OVERLAY_ACTOR (g_value_get_object (value)));
       break;
 
@@ -125,7 +126,7 @@ static void
 clutter_gst_overlay_controlled_init (ClutterGstOverlayControlled *self)
 {
   ClutterGstOverlayControlledPrivate *priv;
-  
+
   self->priv = priv = CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE (self);
 }
 
@@ -147,7 +148,7 @@ clutter_gst_overlay_controlled_class_init (ClutterGstOverlayControlledClass *kla
                                "An instance of ClutterGstOverlayActor used for playing video",
                                CLUTTER_TYPE_GST_OVERLAY_ACTOR,
                                G_PARAM_READWRITE);
-                            
+
   g_object_class_install_property (gobject_class,
                                    PROP_VIDEO_ACTOR, pspec);
 
@@ -156,7 +157,7 @@ clutter_gst_overlay_controlled_class_init (ClutterGstOverlayControlledClass *kla
                                "A player controls UI ClutterTexture",
                                CLUTTER_TYPE_TEXTURE,
                                G_PARAM_WRITABLE);
-                               
+
   g_object_class_install_property (gobject_class,
                                    PROP_CONTROLS_TEXTURE, pspec);
 }
@@ -165,30 +166,28 @@ ClutterGstOverlayActor *
 clutter_gst_overlay_controlled_get_video_actor (ClutterGstOverlayControlled *self)
 {
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (self), NULL);
-  
-  ClutterGstOverlayControlledPrivate *priv = CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE (self);
-  
-  return priv->video_actor;
+
+  return self->priv->video_actor;
 }
 
-void 
+void
 clutter_gst_overlay_controlled_set_video_actor (ClutterGstOverlayControlled *self,
                                                 ClutterGstOverlayActor *video_actor)
 {
   g_return_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (self));
-  
-  ClutterGstOverlayControlledPrivate *priv = CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE (self);
-  
+
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+
   if (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor))
     clutter_container_remove_actor (CLUTTER_CONTAINER (self), CLUTTER_ACTOR (priv->video_actor));
-  
+
   if (CLUTTER_IS_GST_OVERLAY_ACTOR (video_actor))
     clutter_box_pack_at (CLUTTER_BOX (self), CLUTTER_ACTOR (video_actor), 0,
                          "expand", TRUE,
                          "x-fill", TRUE,
                          "y-fill", TRUE,
                          NULL);
-  
+
   priv->video_actor = video_actor;
 }
 
@@ -198,9 +197,9 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
 {
   g_return_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (self));
   g_return_if_fail (CLUTTER_IS_TEXTURE (controls_texture));
-  
-  ClutterGstOverlayControlledPrivate *priv = CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE (self);
-  
+
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+
   ClutterActor *play_button;
   ClutterActor *pause_button;
   ClutterActor *sound_on_button;
@@ -211,5 +210,5 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
   GList        *subtitle_radios;
   ClutterActor *volume_bgr;
   ClutterActor *volume_active;
-  
+
 }
