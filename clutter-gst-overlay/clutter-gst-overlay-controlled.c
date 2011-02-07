@@ -47,6 +47,18 @@ G_DEFINE_TYPE (ClutterGstOverlayControlled,
                clutter_gst_overlay_controlled,
                CLUTTER_TYPE_BOX);
 
+static void
+clutter_gst_overlay_controlled_dispose (GObject *gobject)
+{
+  G_OBJECT_CLASS (clutter_gst_overlay_controlled_parent_class)->dispose (gobject);
+}
+
+static void
+clutter_gst_overlay_controlled_finalize (GObject *gobject)
+{
+  G_OBJECT_CLASS (clutter_gst_overlay_controlled_parent_class)->finalize (gobject);
+}
+
 ClutterActor *
 clutter_gst_overlay_controlled_new (ClutterGstOverlayActor *video_actor,
                                     ClutterTexture *controls_texture)
