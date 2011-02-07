@@ -221,7 +221,9 @@ int main (int argc, char *argv[])
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
 
   ClutterActor *texture = clutter_texture_new_from_file (argv[3], NULL);
-  ClutterActor *ctrl = clutter_gst_overlay_controlled_new (rect, texture);
+  ClutterActor *ctrl = clutter_gst_overlay_controlled_new
+                         (CLUTTER_GST_OVERLAY_ACTOR (rect),
+                          CLUTTER_TEXTURE (texture));
   clutter_actor_set_size (ctrl, 480, 360);
   clutter_actor_set_position (ctrl, 20, 20);
 
