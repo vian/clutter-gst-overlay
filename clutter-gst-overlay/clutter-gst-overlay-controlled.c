@@ -29,11 +29,34 @@
         (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
         CLUTTER_TYPE_GST_OVERLAY_CONTROLLED, ClutterGstOverlayControlledPrivate))
 
+#define BUTTON_TEXTURE_WIDTH   48
+#define BUTTON_TEXTURE_HEIGHT  48
+#define HANDLER_TEXTURE_WIDTH  (BUTTON_TEXTURE_WIDTH * 2)
+#define HANDLER_TEXTURE_HEIGHT (BUTTON_TEXTURE_HEIGHT * 1)
+
+#define PLAY_BUTTON_X          0
+#define PAUSE_BUTTON_X         (BUTTON_TEXTURE_WIDTH * 1)
+#define SOUND_ON_BUTTON_X      (BUTTON_TEXTURE_WIDTH * 2)
+#define SOUND_OFF_BUTTON_X     (BUTTON_TEXTURE_WIDTH * 3)
+#define EMPTY_HANDLER_X        (BUTTON_TEXTURE_WIDTH * 4)
+#define EMPTY_HANDLER_Y        (BUTTON_TEXTURE_WIDTH * 4 + HANDLER_TEXTURE_WIDTH)
+
 struct _ClutterGstOverlayControlledPrivate
 {
   ClutterGstOverlayActor *video_actor;
   ClutterBox             *controls_actor;
   ClutterTexture         *controls_texture;
+
+  ClutterActor *play_button;
+  ClutterActor *pause_button;
+  ClutterActor *sound_on_button;
+  ClutterActor *sound_off_button;
+  ClutterActor *seek_handle;
+  ClutterActor *buffered_progress;
+  ClutterActor *seek_bar;
+  GList        *subtitle_radios;
+  ClutterActor *volume_bgr;
+  ClutterActor *volume_active;
 };
 
 enum {
@@ -126,8 +149,13 @@ static void
 clutter_gst_overlay_controlled_init (ClutterGstOverlayControlled *self)
 {
   ClutterGstOverlayControlledPrivate *priv;
+  ClutterLayoutManager *layout = clutter_box_layout_new();
+  ClutterColor color = { 0xFF, 0xFF, 0xFF, 0xFF };
 
   self->priv = priv = CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE (self);
+
+  priv->controls_actor = CLUTTER_BOX (clutter_box_new (layout));
+  clutter_box_set_color (priv->controls_actor, &color);
 }
 
 static void
@@ -191,6 +219,90 @@ clutter_gst_overlay_controlled_set_video_actor (ClutterGstOverlayControlled *sel
   priv->video_actor = video_actor;
 }
 
+static ClutterActor *
+get_sub_texture (ClutterTexture *texture,
+                 int sub_x,
+                 int sub_y,
+                 int sub_w,
+                 int sub_h)
+{
+  CoglHandle *full_texture = clutter_texture_get_cogl_texture (texture);
+  ClutterActor *new_texture = clutter_texture_new ();
+  CoglHandle *sub_texture = cogl_texture_new_from_sub_texture (full_texture,
+                                                               sub_x, sub_y,
+                                                               sub_w, sub_h);
+  clutter_texture_set_cogl_texture (CLUTTER_TEXTURE (new_texture), sub_texture);
+  return new_texture;
+}
+
+static void
+create_button_actor (ClutterActor *button,
+                     GCallback     c_handle,
+                     gpointer      user_data)
+{
+  clutter_actor_set_reactive (button, TRUE);
+
+  g_signal_connect (button, "button-press-event", c_handle, user_data);
+}
+
+static ClutterActor *
+create_button_from_texture (ClutterTexture *full_texture,
+                            int             sub_x,
+                            int             sub_y,
+                            int             sub_w,
+                            int             sub_h,
+                            GCallback       c_handle,
+                            gpointer        user_data)
+{
+  ClutterActor * new_button = get_sub_texture (full_texture,
+                                               sub_x, sub_y,
+                                               sub_w, sub_h);
+
+  create_button_actor (new_button, c_handle, user_data);
+
+  return new_button;
+}
+
+static gboolean
+play_media (ClutterActor *actor,
+            ClutterEvent *event,
+            gpointer      user_data)
+{
+  clutter_media_set_playing (CLUTTER_MEDIA (user_data), TRUE);
+
+  return TRUE;
+}
+
+static gboolean
+pause_media (ClutterActor *actor,
+             ClutterEvent *event,
+             gpointer      user_data)
+{
+  clutter_media_set_playing (CLUTTER_MEDIA (user_data), FALSE);
+
+  return TRUE;
+}
+
+static gboolean
+sound_on_media (ClutterActor *actor,
+                ClutterEvent *event,
+                gpointer      user_data)
+{
+  clutter_gst_overlay_actor_set_mute (CLUTTER_GST_OVERLAY_ACTOR (user_data), FALSE);
+
+  return TRUE;
+}
+
+static gboolean
+sound_off_media (ClutterActor *actor,
+                 ClutterEvent *event,
+                 gpointer      user_data)
+{
+  clutter_gst_overlay_actor_set_mute (CLUTTER_GST_OVERLAY_ACTOR (user_data), TRUE);
+
+  return TRUE;
+}
+
 void
 clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled *self,
                                                      ClutterTexture *controls_texture)
@@ -199,16 +311,43 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
   g_return_if_fail (CLUTTER_IS_TEXTURE (controls_texture));
 
   ClutterGstOverlayControlledPrivate *priv = self->priv;
+  ClutterGstOverlayActor *video_actor = self->priv->video_actor;
 
-  ClutterActor *play_button;
-  ClutterActor *pause_button;
-  ClutterActor *sound_on_button;
-  ClutterActor *sound_off_button;
-  ClutterActor *seek_handle;
-  ClutterActor *buffered_progress;
-  ClutterActor *seek_bar;
-  GList        *subtitle_radios;
-  ClutterActor *volume_bgr;
-  ClutterActor *volume_active;
+  priv->play_button = create_button_from_texture (controls_texture,
+                                                  PLAY_BUTTON_X, 0,
+                                                  BUTTON_TEXTURE_WIDTH,
+                                                  BUTTON_TEXTURE_HEIGHT,
+                                                  G_CALLBACK (play_media),
+                                                  video_actor);
 
+  priv->pause_button = create_button_from_texture (controls_texture,
+                                                   PAUSE_BUTTON_X, 0,
+                                                   BUTTON_TEXTURE_WIDTH,
+                                                   BUTTON_TEXTURE_HEIGHT,
+                                                   G_CALLBACK (pause_media),
+                                                   video_actor);
+
+  priv->sound_on_button = create_button_from_texture (controls_texture,
+                                                      SOUND_ON_BUTTON_X, 0,
+                                                      BUTTON_TEXTURE_WIDTH,
+                                                      BUTTON_TEXTURE_HEIGHT,
+                                                      G_CALLBACK (sound_on_media),
+                                                      video_actor);
+
+  priv->sound_off_button = create_button_from_texture (controls_texture,
+                                                       SOUND_OFF_BUTTON_X, 0,
+                                                       BUTTON_TEXTURE_WIDTH,
+                                                       BUTTON_TEXTURE_HEIGHT,
+                                                       G_CALLBACK (sound_off_media),
+                                                       video_actor);
+
+  clutter_container_add (CLUTTER_CONTAINER (self->priv->controls_actor),
+                         priv->play_button,
+                         priv->sound_off_button,
+                         NULL);
+
+  clutter_box_pack (CLUTTER_BOX (self), CLUTTER_ACTOR (self->priv->controls_actor),
+                       "x-align", CLUTTER_BOX_ALIGNMENT_CENTER,
+                       "x-fill", TRUE,
+                       NULL);
 }
