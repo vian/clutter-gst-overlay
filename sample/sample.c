@@ -220,7 +220,7 @@ int main (int argc, char *argv[])
   clutter_media_set_uri (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
 
-  ClutterActor *texture = clutter_texture_new ();
+  ClutterActor *texture = clutter_texture_new_from_file (argv[3], NULL);
   ClutterActor *ctrl = clutter_gst_overlay_controlled_new
                          (CLUTTER_GST_OVERLAY_ACTOR (rect),
                           CLUTTER_TEXTURE (texture));
@@ -239,7 +239,6 @@ int main (int argc, char *argv[])
 
   clutter_actor_show (stage);
 
-  clutter_media_set_playing (CLUTTER_MEDIA (rect), TRUE);
   clutter_media_set_subtitle_font_name (CLUTTER_MEDIA (rect), "Sans bold italic 32");
   clutter_media_set_audio_volume (CLUTTER_MEDIA (rect), 0.75);
 
