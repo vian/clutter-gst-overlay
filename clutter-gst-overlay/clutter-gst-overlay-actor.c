@@ -178,11 +178,17 @@ clutter_gst_overlay_actor_parent_set (ClutterActor *self,
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
   ClutterStage *stage_new_parent = CLUTTER_STAGE (clutter_actor_get_stage (self));
 
-  if (!CLUTTER_IS_STAGE (stage_new_parent))
-    return;
+  if (CLUTTER_IS_STAGE (stage_new_parent))
+    {
+      Window window_new_parent = clutter_x11_get_stage_window (stage_new_parent);
+
+      XReparentWindow (priv->display, priv->window,
+                       window_new_parent, 0, 0);
+
+      clutter_gst_overlay_actor_allocate (self, NULL, 0, NULL);
+    }
 
   ClutterActor *parent = clutter_actor_get_parent (self);
-  Window window_new_parent = clutter_x11_get_stage_window (stage_new_parent);
 
   /* We should track all parents for getting 'allocate' signal
    * for correct allocating X window in stage coordinates
@@ -209,11 +215,6 @@ clutter_gst_overlay_actor_parent_set (ClutterActor *self,
 
       parent = clutter_actor_get_parent (parent);
     }
-
-  XReparentWindow (priv->display, priv->window,
-                   window_new_parent, 0, 0);
-
-  clutter_gst_overlay_actor_allocate (self, NULL, 0, NULL);
 }
 
 static gint
