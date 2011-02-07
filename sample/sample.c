@@ -1,5 +1,6 @@
 #include <clutter/clutter.h>
 #include "../clutter-gst-overlay/clutter-gst-overlay-actor.h"
+#include "../clutter-gst-overlay/clutter-gst-overlay-controlled.h"
 
 ClutterActor *cont;
 ClutterActor *cont_parent;
@@ -214,12 +215,15 @@ int main (int argc, char *argv[])
   clutter_stage_set_color (CLUTTER_STAGE (stage), &stage_color);
 
   ClutterActor *rect = clutter_gst_overlay_actor_new ();
-  clutter_actor_set_size (rect, 480, 270);
-  clutter_actor_set_position (rect, 10, 10);
-  //  clutter_media_set_filename (CLUTTER_MEDIA (rect), argv[1]);
+  //  clutter_actor_set_size (rect, 480, 270);
+  //  clutter_actor_set_position (rect, 10, 10);
   clutter_media_set_uri (CLUTTER_MEDIA (rect), argv[1]);
   clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
-  
+
+  ClutterActor *texture = clutter_texture_new_from_file (argv[3], NULL);
+  ClutterActor *ctrl = clutter_gst_overlay_controlled_new (rect, texture);
+  clutter_actor_set_size (ctrl, 480, 360);
+  clutter_actor_set_position (ctrl, 20, 20);
 
   cont = clutter_group_new ();
   clutter_actor_set_position (cont, 0, 100);
@@ -229,7 +233,7 @@ int main (int argc, char *argv[])
   clutter_actor_set_position (cont_parent, 100, 0);
   clutter_container_add_actor (CLUTTER_CONTAINER (stage), cont_parent);
 
-  clutter_container_add_actor (CLUTTER_CONTAINER (stage), rect);
+  clutter_container_add_actor (CLUTTER_CONTAINER (stage), ctrl);
 
   clutter_actor_show (stage);
 
@@ -240,6 +244,7 @@ int main (int argc, char *argv[])
   g_signal_connect (CLUTTER_MEDIA (rect), "eos",
                     G_CALLBACK (close_actor), NULL);
 
+  /*
   g_timeout_add_seconds (0, test_uri, rect);
   g_timeout_add_seconds (5, test_func, rect);
   g_timeout_add_seconds (5, test_allocation, rect);
@@ -248,9 +253,11 @@ int main (int argc, char *argv[])
   g_timeout_add_seconds (5, test_state_changes, rect);
   g_timeout_add_seconds (13, test_state_last_change, rect);
   g_timeout_add_seconds (1, test_state, rect);
+  */
 
   clutter_main ();
 
+  clutter_actor_destroy (ctrl);
   clutter_actor_destroy (rect);
 
   return 0;
