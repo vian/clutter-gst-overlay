@@ -183,7 +183,7 @@ clutter_gst_overlay_controlled_set_video_actor (ClutterGstOverlayControlled *sel
     clutter_container_remove_actor (CLUTTER_CONTAINER (self), CLUTTER_ACTOR (priv->video_actor));
   
   if (CLUTTER_IS_GST_OVERLAY_ACTOR (video_actor))
-    clutter_box_pack_at (CLUTER_BOX (self), CLUTTER_ACTOR (video_actor), 0,
+    clutter_box_pack_at (CLUTTER_BOX (self), CLUTTER_ACTOR (video_actor), 0,
                          "expand", TRUE,
                          "x-fill", TRUE,
                          "y-fill", TRUE,
