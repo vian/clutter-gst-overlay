@@ -43,7 +43,9 @@ enum {
   PROP_CONTROLS_TEXTURE
 };
 
-G_DEFINE_TYPE_WITH_CODE (ClutterGstOverlayControlled, clutter_gst_overlay_controlled, CLUTTER_TYPE_BOX);
+G_DEFINE_TYPE (ClutterGstOverlayControlled,
+               clutter_gst_overlay_controlled,
+               CLUTTER_TYPE_BOX);
 
 ClutterActor *
 clutter_gst_overlay_controlled_new (ClutterGstOverlayActor *video_actor,
