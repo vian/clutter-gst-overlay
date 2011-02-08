@@ -36,8 +36,8 @@
 
 #define PLAY_BUTTON_X          0
 #define PAUSE_BUTTON_X         (BUTTON_TEXTURE_WIDTH * 1)
-#define SOUND_ON_BUTTON_X      (BUTTON_TEXTURE_WIDTH * 2)
-#define SOUND_OFF_BUTTON_X     (BUTTON_TEXTURE_WIDTH * 3)
+#define SOUND_OFF_BUTTON_X     (BUTTON_TEXTURE_WIDTH * 2)
+#define SOUND_ON_BUTTON_X      (BUTTON_TEXTURE_WIDTH * 3)
 #define EMPTY_HANDLER_X        (BUTTON_TEXTURE_WIDTH * 4)
 #define FULL_HANDLER_X         (BUTTON_TEXTURE_WIDTH * 4 + HANDLER_TEXTURE_WIDTH)
 
@@ -78,6 +78,33 @@ G_DEFINE_TYPE (ClutterGstOverlayControlled,
 static void
 clutter_gst_overlay_controlled_dispose (GObject *gobject)
 {
+  ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED (gobject);
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+
+  if (priv->play_button != NULL)
+    {
+      g_object_unref (priv->play_button);
+      priv->play_button = NULL;
+    }
+
+  if (priv->pause_button != NULL)
+    {
+      g_object_unref (priv->pause_button);
+      priv->pause_button = NULL;
+    }
+
+  if (priv->sound_on_button != NULL)
+    {
+      g_object_unref (priv->sound_on_button);
+      priv->sound_on_button = NULL;
+    }
+
+  if (priv->sound_off_button != NULL)
+    {
+      g_object_unref (priv->sound_off_button);
+      priv->sound_off_button = NULL;
+    }
+
   G_OBJECT_CLASS (clutter_gst_overlay_controlled_parent_class)->dispose (gobject);
 }
 
@@ -157,6 +184,11 @@ clutter_gst_overlay_controlled_init (ClutterGstOverlayControlled *self)
   ClutterColor color = { 0xFF, 0xFF, 0xFF, 0xFF };
 
   self->priv = priv = CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE (self);
+
+  priv->play_button = NULL;
+  priv->pause_button = NULL;
+  priv->sound_on_button = NULL;
+  priv->sound_off_button = NULL;
 
   priv->controls_actor = CLUTTER_BOX (clutter_box_new (layout));
   clutter_box_set_color (priv->controls_actor, &color);
@@ -273,18 +305,22 @@ play_media (ClutterActor *actor,
             gpointer      user_data)
 {
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (user_data), FALSE);
-  
+
   ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED(user_data);
   ClutterGstOverlayControlledPrivate *priv = self->priv;
-  
-  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
+
+  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor),
+                        FALSE);
   g_return_val_if_fail (CLUTTER_IS_BOX (priv->controls_actor), FALSE);
-  
-  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor), priv->pause_button);
-  clutter_box_pack_at (priv->controls_actor, priv->play_button, PLAY_PAUSE_BUTTON_POS, NULL, NULL);
-  
+
+  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor),
+                                  priv->play_button);
+
+  clutter_box_pack_at (priv->controls_actor, priv->pause_button,
+                       PLAY_PAUSE_BUTTON_POS, NULL, NULL);
+
   clutter_media_set_playing (CLUTTER_MEDIA (priv->video_actor), TRUE);
-  
+
   return TRUE;
 }
 
@@ -294,16 +330,20 @@ pause_media (ClutterActor *actor,
              gpointer      user_data)
 {
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (user_data), FALSE);
-  
+
   ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED(user_data);
   ClutterGstOverlayControlledPrivate *priv = self->priv;
-  
-  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
+
+  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor),
+                        FALSE);
   g_return_val_if_fail (CLUTTER_IS_BOX (priv->controls_actor), FALSE);
-  
-  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor), priv->play_button);
-  clutter_box_pack_at (priv->controls_actor, priv->pause_button, PLAY_PAUSE_BUTTON_POS, NULL, NULL);
-  
+
+  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor),
+                                  priv->pause_button);
+
+  clutter_box_pack_at (priv->controls_actor, priv->play_button,
+                       PLAY_PAUSE_BUTTON_POS, NULL, NULL);
+
   clutter_media_set_playing (CLUTTER_MEDIA (priv->video_actor), FALSE);
 
   return TRUE;
@@ -315,17 +355,21 @@ sound_on_media (ClutterActor *actor,
                 gpointer      user_data)
 {
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (user_data), FALSE);
-  
+
   ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED(user_data);
   ClutterGstOverlayControlledPrivate *priv = self->priv;
-  
-  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
+
+  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor),
+                        FALSE);
   g_return_val_if_fail (CLUTTER_IS_BOX (priv->controls_actor), FALSE);
-  
-  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor), priv->sound_off_button);
-  clutter_box_pack_at (priv->controls_actor, priv->sound_on_button, SOUND_ON_OFF_BUTTON_POS, NULL, NULL);
-  
-  clutter_gst_overlay_actor_set_mute (CLUTTER_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
+
+  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor),
+                                  priv->sound_on_button);
+
+  clutter_box_pack_at (priv->controls_actor, priv->sound_off_button,
+                       SOUND_ON_OFF_BUTTON_POS, NULL, NULL);
+
+  clutter_gst_overlay_actor_set_mute (priv->video_actor, FALSE);
 
   return TRUE;
 }
@@ -336,17 +380,21 @@ sound_off_media (ClutterActor *actor,
                  gpointer      user_data)
 {
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (user_data), FALSE);
-  
+
   ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED(user_data);
   ClutterGstOverlayControlledPrivate *priv = self->priv;
-  
-  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
+
+  g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor),
+                        FALSE);
   g_return_val_if_fail (CLUTTER_IS_BOX (priv->controls_actor), FALSE);
-  
-  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor), priv->sound_on_button);
-  clutter_box_pack_at (priv->controls_actor, priv->sound_off_button, SOUND_ON_OFF_BUTTON_POS, NULL, NULL);
-  
-  clutter_gst_overlay_actor_set_mute (CLUTTER_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
+
+  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor),
+                                  priv->sound_off_button);
+
+  clutter_box_pack_at (priv->controls_actor, priv->sound_on_button,
+                       SOUND_ON_OFF_BUTTON_POS, NULL, NULL);
+
+  clutter_gst_overlay_actor_set_mute (priv->video_actor, TRUE);
 
   return TRUE;
 }
@@ -357,17 +405,17 @@ seek_clicked_cb (ClutterActor *actor,
                  gpointer      user_data)
 {
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (user_data), FALSE);
-  
+
   ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED(user_data);
   ClutterGstOverlayControlledPrivate *priv = self->priv;
-  
+
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
-  
+
   // TODO: move the slider, set play progress
   return TRUE;
 }
 
-static void 
+static void
 remove_control_cb(ClutterActor *actor, gpointer data)
 {
   clutter_container_remove_actor(CLUTTER_CONTAINER(data), actor);
@@ -391,10 +439,15 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
     {
       if (priv->controls_texture == controls_texture)
         return;
-        
-      clutter_container_foreach (CLUTTER_CONTAINER (priv->controls_actor), 
+
+      clutter_container_foreach (CLUTTER_CONTAINER (priv->controls_actor),
                                  remove_control_cb,
                                  priv->controls_actor);
+
+      g_object_unref (priv->pause_button);
+      g_object_unref (priv->play_button);
+      g_object_unref (priv->sound_on_button);
+      g_object_unref (priv->sound_off_button);
     }
 
   priv->play_button = create_button_from_texture (controls_texture,
@@ -425,10 +478,15 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
                                                        G_CALLBACK (sound_off_media),
                                                        self);
 
+  g_object_ref (priv->pause_button);
+  g_object_ref (priv->play_button);
+  g_object_ref (priv->sound_on_button);
+  g_object_ref (priv->sound_off_button);
+
   // TODO: remove memory leaks (when setting texture again)
   seek_bar_layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_FIXED, CLUTTER_BIN_ALIGNMENT_FIXED);
   priv->seek_bar_container = CLUTTER_BOX (clutter_box_new (seek_bar_layout));
-  
+
   priv->seek_bar = clutter_rectangle_new_with_color (&seek_bar_color);
   clutter_actor_set_height (priv->seek_bar, 8);
   clutter_box_pack (priv->seek_bar_container, priv->seek_bar,
@@ -436,8 +494,8 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
                     "y-align", CLUTTER_BIN_ALIGNMENT_CENTER,
                     NULL);
   create_button_actor(priv->seek_bar, G_CALLBACK(seek_clicked_cb), self);
-  
-  
+
+
   priv->buffered_progress = clutter_rectangle_new_with_color (&buffered_progress_color);
   // TODO: add appropriate width (how much of the stream is buffered now)
   clutter_actor_set_y(priv->buffered_progress, 17);
@@ -457,7 +515,7 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
                     "x-fill", TRUE,
                     "y-fill", FALSE,
                     NULL);
-                                        
+
   clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
                     priv->sound_off_button,
                     NULL, NULL);
