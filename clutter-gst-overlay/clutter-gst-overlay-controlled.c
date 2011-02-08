@@ -80,6 +80,12 @@ G_DEFINE_TYPE (ClutterGstOverlayControlled,
                CLUTTER_TYPE_BOX);
 
 static void
+update_subtitles_control (ClutterGstOverlayControlled *self);
+
+static void
+create_subtitles_control (ClutterGstOverlayControlled *self);
+
+static void
 clutter_gst_overlay_controlled_dispose (GObject *gobject)
 {
   ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED (gobject);
@@ -193,6 +199,7 @@ clutter_gst_overlay_controlled_init (ClutterGstOverlayControlled *self)
   priv->pause_button = NULL;
   priv->sound_on_button = NULL;
   priv->sound_off_button = NULL;
+  priv->subtitle_radios = NULL;
 
   priv->controls_actor = CLUTTER_BOX (clutter_box_new (layout));
   clutter_box_set_color (priv->controls_actor, &color);
@@ -325,6 +332,8 @@ play_media (ClutterActor *actor,
 
   clutter_media_set_playing (CLUTTER_MEDIA (priv->video_actor), TRUE);
 
+  create_subtitles_control (self);
+
   return TRUE;
 }
 
@@ -456,6 +465,153 @@ static void
 remove_control_cb(ClutterActor *actor, gpointer data)
 {
   clutter_container_remove_actor(CLUTTER_CONTAINER(data), actor);
+}
+
+static ClutterActor *
+create_subtitle_radio (const gchar *text)
+{
+  ClutterLayoutManager *layout;
+  ClutterBox *box;
+  ClutterActor *rect;
+  ClutterActor *text_actor;
+
+  layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_CENTER,
+                                   CLUTTER_BIN_ALIGNMENT_CENTER);
+
+  box = CLUTTER_BOX (clutter_box_new (layout));
+
+  rect = clutter_rectangle_new ();
+  clutter_actor_set_size (rect, BUTTON_TEXTURE_WIDTH, BUTTON_TEXTURE_HEIGHT);
+
+  text_actor = clutter_text_new_with_text ("Sans 16", text);
+
+  clutter_bin_layout_add (CLUTTER_BIN_LAYOUT (layout), rect,
+                          CLUTTER_BIN_ALIGNMENT_CENTER,
+                          CLUTTER_BIN_ALIGNMENT_CENTER);
+
+  clutter_bin_layout_add (CLUTTER_BIN_LAYOUT (layout), text_actor,
+                          CLUTTER_BIN_ALIGNMENT_CENTER,
+                          CLUTTER_BIN_ALIGNMENT_CENTER);
+
+  return CLUTTER_ACTOR (box);
+}
+
+static void
+subtitle_button_set_color (ClutterActor       *actor,
+                           const ClutterColor *color)
+{
+  ClutterBox *subtitle_box = CLUTTER_BOX (actor);
+  GList *children = clutter_container_get_children (CLUTTER_CONTAINER (actor));
+  GList *rect = children;
+
+  while (rect != NULL && !CLUTTER_IS_RECTANGLE (rect->data))
+    rect = g_list_next (rect);
+
+  if (children != NULL)
+    clutter_rectangle_set_color (CLUTTER_RECTANGLE (rect->data), color);
+
+  g_list_free (children);
+}
+
+static gboolean
+change_current_subtitle (ClutterActor *actor,
+                         ClutterEvent *event,
+                         gpointer      user_data)
+{
+  ClutterGstOverlayControlled *slf = CLUTTER_GST_OVERLAY_CONTROLLED (user_data);
+  ClutterGstOverlayControlledPrivate *priv = slf->priv;
+  gint index = g_list_index (priv->subtitle_radios, actor);
+
+  if (index == 0)
+    {
+      clutter_gst_overlay_actor_set_subtitle_flag (priv->video_actor, FALSE);
+    }
+  else
+    {
+      g_object_set (G_OBJECT (priv->video_actor),
+                    "current-text", index - 1, NULL);
+      clutter_gst_overlay_actor_set_subtitle_flag (priv->video_actor, TRUE);
+    }
+
+  update_subtitles_control (slf);
+
+  return TRUE;
+}
+
+static void
+subtitle_button_destroy (gpointer data,
+                         gpointer user_data)
+{
+  if (CLUTTER_IS_BOX (data))
+    clutter_actor_destroy (CLUTTER_ACTOR (data));
+}
+
+static void
+update_subtitles_control (ClutterGstOverlayControlled *self)
+{
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+  gint n_text, current_text, i;
+  ClutterActor *subtitle_radio;
+  gboolean flag = clutter_gst_overlay_actor_get_subtitle_flag (priv->video_actor);
+  static ClutterColor active_subtitle_radio = { 0xaa, 0xaa, 0xaa, 0xff };
+  static ClutterColor passive_subtitle_radio = { 0xcc, 0xcc, 0xcc, 0xff };
+
+  g_object_get (G_OBJECT (priv->video_actor),
+                "n-text", &n_text,
+                "current-text", &current_text,
+                NULL);
+
+  for (i = 0; i <= n_text; ++i)
+    {
+      subtitle_radio = CLUTTER_ACTOR (g_list_nth (priv->subtitle_radios, 
+                                                  i)->data);
+      if ((!flag && i == 0) ||
+          (flag && i == current_text + 1))
+
+        {
+          subtitle_button_set_color (subtitle_radio,
+                                     &active_subtitle_radio);
+        }
+      else
+        subtitle_button_set_color (subtitle_radio,
+                                   &passive_subtitle_radio);
+    }
+}
+
+static void
+create_subtitles_control (ClutterGstOverlayControlled *self)
+{
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+  gint n_text, current_text, i;
+  ClutterActor *subtitle_radio;
+  gchar *text;
+
+  g_object_get (G_OBJECT (priv->video_actor),
+                "n-text", &n_text,
+                "current-text", &current_text,
+                NULL);
+
+  g_list_foreach (priv->subtitle_radios, subtitle_button_destroy, NULL);
+  //  g_list_free (priv->subtitle_radios);
+
+  for (i = 0; i <= n_text; ++i)
+    {
+      text = (i == 0) ? g_strdup_printf ("DS") : g_strdup_printf ("S%d", i);
+      subtitle_radio = create_subtitle_radio (text);
+      g_free (text);
+
+      priv->subtitle_radios = g_list_append (priv->subtitle_radios,
+                                             subtitle_radio);
+
+      create_button_actor (subtitle_radio,
+                           G_CALLBACK (change_current_subtitle), self);
+
+      clutter_box_pack (CLUTTER_BOX (priv->controls_actor),
+                        subtitle_radio,
+                        NULL, NULL);
+    }
+
+  update_subtitles_control (self);
 }
 
 void
@@ -594,6 +750,8 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
   clutter_box_pack (CLUTTER_BOX (priv->controls_actor),
                     CLUTTER_ACTOR (priv->volume_box),
                     NULL, NULL);
+
+  //  create_subtitles_control (self);
 
   clutter_box_pack (CLUTTER_BOX (self),
                     CLUTTER_ACTOR (self->priv->controls_actor),
