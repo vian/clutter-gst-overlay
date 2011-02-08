@@ -34,6 +34,9 @@
 #define HANDLER_TEXTURE_WIDTH  (BUTTON_TEXTURE_WIDTH * 2)
 #define HANDLER_TEXTURE_HEIGHT (BUTTON_TEXTURE_HEIGHT * 1)
 
+#define HANDLER_TEXTURE_LEFT_OFFSET  10
+#define HANDLER_TEXTURE_RIGHT_OFFSET 14
+
 #define PLAY_BUTTON_X          0
 #define PAUSE_BUTTON_X         (BUTTON_TEXTURE_WIDTH * 1)
 #define SOUND_OFF_BUTTON_X     (BUTTON_TEXTURE_WIDTH * 2)
@@ -61,6 +64,7 @@ struct _ClutterGstOverlayControlledPrivate
   GList        *subtitle_radios;
   ClutterActor *volume_bgr;
   ClutterActor *volume_active;
+  ClutterBox   *volume_box;
 };
 
 enum {
@@ -400,6 +404,39 @@ sound_off_media (ClutterActor *actor,
 }
 
 static gboolean
+set_volume_media (ClutterActor *actor,
+                  ClutterEvent *event,
+                  gpointer      user_data)
+{
+  gfloat x, y, width, height;
+  gfloat left_border, right_border;
+  gdouble volume_value;
+  ClutterGstOverlayControlled *slf = CLUTTER_GST_OVERLAY_CONTROLLED (user_data);
+  ClutterMedia *media = CLUTTER_MEDIA (slf->priv->video_actor);
+
+  clutter_actor_get_size (actor, &width, &height);
+  clutter_event_get_coords (event, &x, &y);
+  clutter_actor_transform_stage_point (actor, x, y, &x, &y);
+  left_border = HANDLER_TEXTURE_LEFT_OFFSET;
+
+  right_border = width - HANDLER_TEXTURE_RIGHT_OFFSET;
+
+  if (x <= left_border)
+    volume_value = 0.0;
+  else
+    if (x >= right_border)
+      volume_value = 1.0;
+    else
+      volume_value = (x - left_border) / (right_border - left_border);
+
+  clutter_media_set_audio_volume (media, volume_value);
+
+  clutter_actor_set_clip (slf->priv->volume_active, 0, 0, x, height);
+
+  return TRUE;
+}
+
+static gboolean
 seek_clicked_cb (ClutterActor *actor,
                  ClutterEvent *event,
                  gpointer      user_data)
@@ -431,6 +468,7 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
   ClutterGstOverlayControlledPrivate *priv = self->priv;
   ClutterGstOverlayActor *video_actor = self->priv->video_actor;
   ClutterLayoutManager *seek_bar_layout;
+  ClutterLayoutManager *volume_layout;
 
   static ClutterColor seek_bar_color = { 0xcc, 0xcc, 0xcc, 0xff };
   static ClutterColor buffered_progress_color = { 0xff, 0xf0, 0xf0, 0xff };
@@ -450,6 +488,7 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
       g_object_unref (priv->sound_off_button);
     }
 
+  /* Creating control buttons */
   priv->play_button = create_button_from_texture (controls_texture,
                                                   PLAY_BUTTON_X, 0,
                                                   BUTTON_TEXTURE_WIDTH,
@@ -500,13 +539,49 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
   // TODO: add appropriate width (how much of the stream is buffered now)
   clutter_actor_set_y(priv->buffered_progress, 17);
   clutter_actor_set_height(priv->buffered_progress, 3);
+
   clutter_box_pack (priv->seek_bar_container, priv->buffered_progress,
                     "x-align", CLUTTER_BIN_ALIGNMENT_FIXED,
                     "y-align", CLUTTER_BIN_ALIGNMENT_FIXED,
                     NULL);
 
+  /* Creating volume handle */
+  volume_layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_CENTER,
+                                          CLUTTER_BIN_ALIGNMENT_CENTER);
+
+  priv->volume_box = CLUTTER_BOX (clutter_box_new (volume_layout));
+
+  priv->volume_bgr = get_sub_texture (controls_texture,
+                                      EMPTY_HANDLER_X, 0,
+                                      HANDLER_TEXTURE_WIDTH,
+                                      HANDLER_TEXTURE_HEIGHT);
+
+  priv->volume_active = get_sub_texture (controls_texture,
+                                         FULL_HANDLER_X, 0,
+                                         HANDLER_TEXTURE_WIDTH,
+                                         HANDLER_TEXTURE_HEIGHT);
+
+  clutter_bin_layout_add (CLUTTER_BIN_LAYOUT (volume_layout),
+                          priv->volume_bgr,
+                          CLUTTER_BIN_ALIGNMENT_CENTER,
+                          CLUTTER_BIN_ALIGNMENT_CENTER);
+
+  clutter_bin_layout_add (CLUTTER_BIN_LAYOUT (volume_layout),
+                          priv->volume_active,
+                          CLUTTER_BIN_ALIGNMENT_CENTER,
+                          CLUTTER_BIN_ALIGNMENT_CENTER);
+
+  create_button_actor (CLUTTER_ACTOR (priv->volume_box),
+                       G_CALLBACK (set_volume_media),
+                       self);
+
+  /* Installing all controls */
   clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
                     priv->play_button,
+                    NULL, NULL);
+
+  clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
+                    priv->sound_off_button,
                     NULL, NULL);
 
   clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
@@ -516,8 +591,8 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
                     "y-fill", FALSE,
                     NULL);
 
-  clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
-                    priv->sound_off_button,
+  clutter_box_pack (CLUTTER_BOX (priv->controls_actor),
+                    CLUTTER_ACTOR (priv->volume_box),
                     NULL, NULL);
 
   clutter_box_pack (CLUTTER_BOX (self),
