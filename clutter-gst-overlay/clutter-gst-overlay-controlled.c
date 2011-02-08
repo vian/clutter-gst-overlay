@@ -39,7 +39,7 @@
 #define SOUND_ON_BUTTON_X      (BUTTON_TEXTURE_WIDTH * 2)
 #define SOUND_OFF_BUTTON_X     (BUTTON_TEXTURE_WIDTH * 3)
 #define EMPTY_HANDLER_X        (BUTTON_TEXTURE_WIDTH * 4)
-#define EMPTY_HANDLER_Y        (BUTTON_TEXTURE_WIDTH * 4 + HANDLER_TEXTURE_WIDTH)
+#define FULL_HANDLER_X         (BUTTON_TEXTURE_WIDTH * 4 + HANDLER_TEXTURE_WIDTH)
 
 #define PLAY_PAUSE_BUTTON_POS     0
 #define SOUND_ON_OFF_BUTTON_POS   1
@@ -427,7 +427,7 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
 
   // TODO: remove memory leaks (when setting texture again)
   seek_bar_layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_FIXED, CLUTTER_BIN_ALIGNMENT_FIXED);
-  priv->seek_bar_container = clutter_box_new (seek_bar_layout);
+  priv->seek_bar_container = CLUTTER_BOX (clutter_box_new (seek_bar_layout));
   
   priv->seek_bar = clutter_rectangle_new_with_color (&seek_bar_color);
   clutter_actor_set_height (priv->seek_bar, 8);
@@ -447,22 +447,23 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
                     "y-align", CLUTTER_BIN_ALIGNMENT_FIXED,
                     NULL);
 
-  clutter_box_pack (CLUTTER_CONTAINER (self->priv->controls_actor),
+  clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
                     priv->play_button,
                     NULL, NULL);
 
-  clutter_box_pack (CLUTTER_CONTAINER (self->priv->controls_actor),
-                    priv->seek_bar_container,
+  clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
+                    CLUTTER_ACTOR (priv->seek_bar_container),
                     "expand", FALSE,
                     "x-fill", TRUE,
                     "y-fill", FALSE,
                     NULL);
                                         
-  clutter_box_pack (CLUTTER_CONTAINER (self->priv->controls_actor),
+  clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
                     priv->sound_off_button,
                     NULL, NULL);
 
-  clutter_box_pack (CLUTTER_BOX (self), CLUTTER_ACTOR (self->priv->controls_actor),
-                       "x-fill", TRUE,
-                       NULL);
+  clutter_box_pack (CLUTTER_BOX (self),
+                    CLUTTER_ACTOR (self->priv->controls_actor),
+                    "x-fill", TRUE,
+                    NULL);
 }
