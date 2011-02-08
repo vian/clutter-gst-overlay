@@ -158,10 +158,10 @@ clutter_gst_overlay_actor_allocate (ClutterActor *self,
    * if either width or height is zero,
    * a BadValue error results.
    */
-  if (w <= 0)
+  if (w < 1.0)
     w = 1;
 
-  if (h <= 0)
+  if (h < 1.0)
     h = 1;
 
   XMoveResizeWindow (priv->display, priv->window,

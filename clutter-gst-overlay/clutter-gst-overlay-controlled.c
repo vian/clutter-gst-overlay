@@ -57,8 +57,6 @@ struct _ClutterGstOverlayControlledPrivate
   ClutterActor *pause_button;
   ClutterActor *sound_on_button;
   ClutterActor *sound_off_button;
-  ClutterBox   *seek_bar_container;
-  ClutterActor *seek_handle;
   ClutterActor *buffered_progress;
   ClutterActor *seek_bar;
   GList        *subtitle_radios;
@@ -84,6 +82,16 @@ update_subtitles_control (ClutterGstOverlayControlled *self);
 
 static void
 create_subtitles_control (ClutterGstOverlayControlled *self);
+
+static gboolean
+seek_clicked_cb (ClutterActor *actor,
+                 ClutterEvent *event,
+                 gpointer      user_data);
+
+static void
+create_button_actor (ClutterActor *button,
+                     GCallback     c_handle,
+                     gpointer      user_data);
 
 static void
 clutter_gst_overlay_controlled_dispose (GObject *gobject)
@@ -186,12 +194,34 @@ clutter_gst_overlay_controlled_set_property (GObject      *object,
     }
 }
 
+static gboolean
+timeout (gpointer data)
+{
+    g_return_val_if_fail(CLUTTER_IS_GST_OVERLAY_CONTROLLED(data), FALSE);
+
+    ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED(data);
+    ClutterGstOverlayControlledPrivate *priv = self->priv;
+
+    gfloat self_width = clutter_actor_get_width(CLUTTER_ACTOR(priv->video_actor));
+    gdouble progress, buffer_fill;
+    g_object_get(priv->video_actor, 
+                 "progress", &progress,
+                 "buffer-fill", &buffer_fill,
+                 NULL);
+
+    clutter_actor_set_width(priv->buffered_progress, self_width * buffer_fill);
+    clutter_actor_set_width(priv->seek_bar, self_width * progress);
+
+    return TRUE;
+}
+
 static void
 clutter_gst_overlay_controlled_init (ClutterGstOverlayControlled *self)
 {
   ClutterGstOverlayControlledPrivate *priv;
   ClutterLayoutManager *layout = clutter_box_layout_new();
-  ClutterColor color = { 0xFF, 0xFF, 0xFF, 0xFF };
+  ClutterLayoutManager *seek_bar_layout;
+  static ClutterColor color = { 0xFF, 0xFF, 0xFF, 0xFF };
 
   self->priv = priv = CLUTTER_GST_OVERLAY_CONTROLLED_GET_PRIVATE (self);
 
@@ -245,6 +275,56 @@ clutter_gst_overlay_controlled_get_video_actor (ClutterGstOverlayControlled *sel
   return self->priv->video_actor;
 }
 
+static void
+add_seek_bar(ClutterGstOverlayControlled *self)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (self));
+
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+
+  ClutterLayoutManager *seek_bar_layout;
+  ClutterLayoutManager *buf_bar_layout;
+  ClutterBox *seek_bar_container;
+  ClutterBox *buf_bar_container;
+  static ClutterColor white_color = { 0xff, 0xff, 0xff, 0xff };
+  static ClutterColor seek_bar_color = { 0xcc, 0xcc, 0xcc, 0xff };
+  static ClutterColor seek_bar_progress_color = { 0x80, 0x80, 0x80, 0xff };
+  static ClutterColor buffered_progress_color = { 0xff, 0x80, 0x80, 0xff };
+
+  buf_bar_layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_FIXED, CLUTTER_BIN_ALIGNMENT_FIXED);
+  buf_bar_container = CLUTTER_BOX (clutter_box_new (buf_bar_layout));
+  clutter_box_set_color (buf_bar_container, &white_color);
+  clutter_actor_set_height(CLUTTER_ACTOR(buf_bar_container), 3);
+  priv->buffered_progress = clutter_rectangle_new_with_color (&buffered_progress_color);
+
+  clutter_box_pack (buf_bar_container, priv->buffered_progress,
+                    "x-align", CLUTTER_BIN_ALIGNMENT_START,
+                    "y-align", CLUTTER_BIN_ALIGNMENT_FILL,
+                    NULL);
+  clutter_box_pack(CLUTTER_BOX(self), CLUTTER_ACTOR(buf_bar_container), 
+                   "expand", FALSE,
+                   "x-fill", TRUE, 
+                   "y-fill", FALSE, NULL);
+
+  seek_bar_layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_FIXED, CLUTTER_BIN_ALIGNMENT_FIXED);
+  seek_bar_container = CLUTTER_BOX (clutter_box_new (seek_bar_layout));
+  clutter_box_set_color(seek_bar_container, &seek_bar_color);
+  clutter_actor_set_height (CLUTTER_ACTOR(seek_bar_container), 12);
+  create_button_actor(CLUTTER_ACTOR(seek_bar_container), G_CALLBACK(seek_clicked_cb), self);
+
+  priv->seek_bar = clutter_rectangle_new_with_color (&seek_bar_progress_color);
+  clutter_box_pack (seek_bar_container, priv->seek_bar,
+                    "x-align", CLUTTER_BIN_ALIGNMENT_START,
+                    "y-align", CLUTTER_BIN_ALIGNMENT_FILL,
+                    NULL);
+  clutter_box_pack(CLUTTER_BOX(self), CLUTTER_ACTOR(seek_bar_container), 
+                   "expand", FALSE,
+                   "x-fill", TRUE, 
+                   "y-fill", FALSE, NULL);
+
+  g_timeout_add(1000, timeout, self);
+}
+
 void
 clutter_gst_overlay_controlled_set_video_actor (ClutterGstOverlayControlled *self,
                                                 ClutterGstOverlayActor *video_actor)
@@ -254,7 +334,9 @@ clutter_gst_overlay_controlled_set_video_actor (ClutterGstOverlayControlled *sel
   ClutterGstOverlayControlledPrivate *priv = self->priv;
 
   if (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor))
-    clutter_container_remove_actor (CLUTTER_CONTAINER (self), CLUTTER_ACTOR (priv->video_actor));
+      clutter_container_remove_actor (CLUTTER_CONTAINER (self), CLUTTER_ACTOR (priv->video_actor));
+  else
+      add_seek_bar(self);
 
   if (CLUTTER_IS_GST_OVERLAY_ACTOR (video_actor))
     clutter_box_pack_at (CLUTTER_BOX (self), CLUTTER_ACTOR (video_actor), 0,
@@ -454,10 +536,21 @@ seek_clicked_cb (ClutterActor *actor,
 
   ClutterGstOverlayControlled *self = CLUTTER_GST_OVERLAY_CONTROLLED(user_data);
   ClutterGstOverlayControlledPrivate *priv = self->priv;
+  gfloat self_width;  
+  gfloat x1, y1, x2, y2;
+  gdouble progress;
 
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor), FALSE);
 
-  // TODO: move the slider, set play progress
+  self_width = clutter_actor_get_width(CLUTTER_ACTOR(priv->video_actor));
+  clutter_event_get_coords(event, &x1, &y1);
+  clutter_actor_transform_stage_point(actor, x1, y1, &x2, &y2);
+
+  progress = x2 / self_width;
+
+  g_object_set(priv->video_actor, "progress", progress, NULL);
+  clutter_actor_set_width(priv->seek_bar, x2);
+
   return TRUE;
 }
 
@@ -623,11 +716,7 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
 
   ClutterGstOverlayControlledPrivate *priv = self->priv;
   ClutterGstOverlayActor *video_actor = self->priv->video_actor;
-  ClutterLayoutManager *seek_bar_layout;
   ClutterLayoutManager *volume_layout;
-
-  static ClutterColor seek_bar_color = { 0xcc, 0xcc, 0xcc, 0xff };
-  static ClutterColor buffered_progress_color = { 0xff, 0xf0, 0xf0, 0xff };
 
   if (CLUTTER_IS_TEXTURE (priv->controls_texture))
     {
@@ -678,29 +767,6 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
   g_object_ref (priv->sound_on_button);
   g_object_ref (priv->sound_off_button);
 
-  // TODO: remove memory leaks (when setting texture again)
-  seek_bar_layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_FIXED, CLUTTER_BIN_ALIGNMENT_FIXED);
-  priv->seek_bar_container = CLUTTER_BOX (clutter_box_new (seek_bar_layout));
-
-  priv->seek_bar = clutter_rectangle_new_with_color (&seek_bar_color);
-  clutter_actor_set_height (priv->seek_bar, 8);
-  clutter_box_pack (priv->seek_bar_container, priv->seek_bar,
-                    "x-align", CLUTTER_BIN_ALIGNMENT_FILL,
-                    "y-align", CLUTTER_BIN_ALIGNMENT_CENTER,
-                    NULL);
-  create_button_actor(priv->seek_bar, G_CALLBACK(seek_clicked_cb), self);
-
-
-  priv->buffered_progress = clutter_rectangle_new_with_color (&buffered_progress_color);
-  // TODO: add appropriate width (how much of the stream is buffered now)
-  clutter_actor_set_y(priv->buffered_progress, 17);
-  clutter_actor_set_height(priv->buffered_progress, 3);
-
-  clutter_box_pack (priv->seek_bar_container, priv->buffered_progress,
-                    "x-align", CLUTTER_BIN_ALIGNMENT_FIXED,
-                    "y-align", CLUTTER_BIN_ALIGNMENT_FIXED,
-                    NULL);
-
   /* Creating volume handle */
   volume_layout = clutter_bin_layout_new (CLUTTER_BIN_ALIGNMENT_CENTER,
                                           CLUTTER_BIN_ALIGNMENT_CENTER);
@@ -739,13 +805,6 @@ clutter_gst_overlay_controlled_set_controls_texture (ClutterGstOverlayControlled
   clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
                     priv->sound_off_button,
                     NULL, NULL);
-
-  clutter_box_pack (CLUTTER_BOX (self->priv->controls_actor),
-                    CLUTTER_ACTOR (priv->seek_bar_container),
-                    "expand", FALSE,
-                    "x-fill", TRUE,
-                    "y-fill", FALSE,
-                    NULL);
 
   clutter_box_pack (CLUTTER_BOX (priv->controls_actor),
                     CLUTTER_ACTOR (priv->volume_box),

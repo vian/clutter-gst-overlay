@@ -201,7 +201,7 @@ gboolean test_func (gpointer user_data)
 int main (int argc, char *argv[])
 {
   ClutterColor stage_color = { 0x00, 0xFF, 0x00, 0xFF };
-
+  char **argvp = &(argv[1]);
   //if (argc != 2 && argc != 3) {
   //g_printerr ("Usage: %s <uri to video-file> <uri to subtitle-file>\n",
   //            argv[0]);
@@ -217,10 +217,13 @@ int main (int argc, char *argv[])
   ClutterActor *rect = clutter_gst_overlay_actor_new ();
   //  clutter_actor_set_size (rect, 480, 270);
   //  clutter_actor_set_position (rect, 10, 10);
-  clutter_media_set_uri (CLUTTER_MEDIA (rect), argv[1]);
-  clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), argv[2]);
+  clutter_media_set_uri (CLUTTER_MEDIA (rect), *argvp++);
 
-  ClutterActor *texture = clutter_texture_new_from_file (argv[3], NULL);
+  if (argc >= 4) 
+    {
+      clutter_media_set_subtitle_uri (CLUTTER_MEDIA (rect), *argvp++);
+    }
+  ClutterActor *texture = clutter_texture_new_from_file (*argvp, NULL);
   ClutterActor *ctrl = clutter_gst_overlay_controlled_new
                          (CLUTTER_GST_OVERLAY_ACTOR (rect),
                           CLUTTER_TEXTURE (texture));
