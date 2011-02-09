@@ -83,7 +83,10 @@ enum {
   PROP_CURRENT_TEXT,
   PROP_CURRENT_AUDIO,
   PROP_CURRENT_VIDEO,
-  PROP_MUTE
+  PROP_SUBTITLE_FLAG,
+  PROP_MUTE,
+
+  PROP_LAST
 };
 
 static void clutter_media_interface_init (ClutterMediaIface *iface);
@@ -578,6 +581,22 @@ get_video_pad (ClutterGstOverlayActor *self,
 }
 
 static void
+notify_subtitle_flag (GObject    *object,
+                      GParamSpec *pspec,
+                      gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "subtitle-flag");
+}
+
+static void
+notify_mute (GObject    *object,
+             GParamSpec *pspec,
+             gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "mute");
+}
+
+static void
 notify_source (GObject    *object,
                GParamSpec *pspec,
                gpointer    user_data)
@@ -632,6 +651,10 @@ clutter_gst_overlay_actor_set_property (GObject      *object,
 
     case PROP_CURRENT_VIDEO:
       set_current_video (self, g_value_get_int (value));
+      break;
+
+    case PROP_SUBTITLE_FLAG:
+      clutter_gst_overlay_actor_set_subtitle_flag (self, g_value_get_boolean (value));
       break;
 
     case PROP_MUTE:
@@ -714,6 +737,10 @@ clutter_gst_overlay_actor_get_property (GObject    *object,
       g_value_set_int (value, get_current_video (self));
       break;
 
+    case PROP_SUBTITLE_FLAG:
+      g_value_set_boolean (value, clutter_gst_overlay_actor_get_subtitle_flag (self));
+      break;
+
     case PROP_MUTE:
       g_value_set_boolean (value, clutter_gst_overlay_actor_get_mute (self));
       break;
@@ -736,7 +763,8 @@ bus_call (GstBus     *bus,
   case GST_MESSAGE_EOS: {
     actor->priv->states |= CLUTTER_GST_OVERLAY_STATE_ENDED;
 
-    gst_element_set_state (actor->priv->pipeline, GST_STATE_READY);
+    clutter_media_set_playing (CLUTTER_MEDIA (actor), FALSE);
+    gst_element_set_state (actor->priv->pipeline, GST_STATE_NULL);
 
     g_signal_emit_by_name (actor, "eos");
     break;
@@ -749,6 +777,7 @@ bus_call (GstBus     *bus,
     gst_message_parse_error (msg, &error, &debug);
     g_free (debug);
 
+    clutter_media_set_playing (CLUTTER_MEDIA (actor), FALSE);
     gst_element_set_state (actor->priv->pipeline, GST_STATE_NULL);
     g_signal_emit_by_name (actor, "error", error);
 
@@ -876,6 +905,10 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
                     G_CALLBACK (notify_current_video), self);
   g_signal_connect (pipeline, "notify::n-video",
                     G_CALLBACK (notify_n_video), self);
+  g_signal_connect (pipeline, "notify::flags",
+                    G_CALLBACK (notify_subtitle_flag), self);
+  g_signal_connect (pipeline, "notify::mute",
+                    G_CALLBACK (notify_mute), self);
   g_signal_connect (pipeline, "notify::source",
                     G_CALLBACK (notify_source), self);
 
@@ -993,6 +1026,14 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
                             G_PARAM_READWRITE);
   g_object_class_install_property (gobject_class,
                                    PROP_CURRENT_VIDEO, pspec);
+
+  pspec = g_param_spec_boolean ("subtitle-flag",
+                                "Subtitle flag",
+                                "Is subtitles rendered",
+                                FALSE,
+                                G_PARAM_READWRITE);
+  g_object_class_install_property (gobject_class,
+                                   PROP_SUBTITLE_FLAG, pspec);
 
   pspec = g_param_spec_boolean ("mute",
                                 "Muted",
