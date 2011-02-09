@@ -29,6 +29,7 @@
 
 #include <glib-object.h>
 #include <clutter/clutter.h>
+#include <clutter/x11/clutter-x11-texture-pixmap.h>
 #include <gst/gst.h>
 
 G_BEGIN_DECLS
@@ -61,13 +62,13 @@ typedef struct _ClutterGstOverlayActorPrivate  ClutterGstOverlayActorPrivate;
 
 struct _ClutterGstOverlayActor
 {
-  ClutterRectangle                parent;
+  ClutterX11TexturePixmap         parent;
   ClutterGstOverlayActorPrivate  *priv;
 };
 
 struct _ClutterGstOverlayActorClass
 {
-  ClutterRectangleClass parent_class;
+  ClutterX11TexturePixmapClass parent_class;
 
   /* Future padding */
   void (* _clutter_reserved1) (void);

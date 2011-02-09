@@ -31,6 +31,7 @@
 #include <gst/interfaces/xoverlay.h>
 #include <gst/video/video.h>
 #include <X11/Xlib.h>
+#include <X11/extensions/Xcomposite.h>
 
 #define CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE(obj) \
         (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
@@ -93,7 +94,7 @@ static void clutter_media_interface_init (ClutterMediaIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (ClutterGstOverlayActor,
                          clutter_gst_overlay_actor,
-                         CLUTTER_TYPE_RECTANGLE,
+                         CLUTTER_X11_TYPE_TEXTURE_PIXMAP,
                          G_IMPLEMENT_INTERFACE (CLUTTER_TYPE_MEDIA,
                                                 clutter_media_interface_init));
 
@@ -127,33 +128,13 @@ clutter_gst_overlay_actor_finalize (GObject *gobject)
 }
 
 static void
-clutter_gst_overlay_actor_show (ClutterActor *self,
-                                gpointer      user_data)
-{
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
-  XMapWindow (priv->display, priv->window);
-}
-
-static void
-clutter_gst_overlay_actor_hide (ClutterActor *self,
-                                gpointer      user_data)
-{
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-
-  XUnmapWindow (priv->display, priv->window);
-}
-
-static void
 clutter_gst_overlay_actor_allocate (ClutterActor *self,
                                     ClutterActorBox *box,
                                     ClutterAllocationFlags flags,
                                     gpointer user_data)
 {
   ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-  gfloat x, y, w, h;
-
-  clutter_actor_get_transformed_position (self, &x, &y);
+  gfloat w, h;
 
   clutter_actor_get_transformed_size (self, &w, &h);
 
@@ -168,56 +149,12 @@ clutter_gst_overlay_actor_allocate (ClutterActor *self,
     h = 1;
 
   XMoveResizeWindow (priv->display, priv->window,
-                     x, y, w, h);
+                     0, 0, w, h);
+  XSync(priv->display, FALSE);
+
+  clutter_x11_texture_pixmap_sync_window (CLUTTER_X11_TEXTURE_PIXMAP (self));
 
   gst_x_overlay_expose (GST_X_OVERLAY (priv->video_sink));
-}
-
-static void
-clutter_gst_overlay_actor_parent_set (ClutterActor *self,
-                                      ClutterActor *old_parent,
-                                      gpointer      user_data)
-{
-  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR (self)->priv;
-  ClutterStage *stage_new_parent = CLUTTER_STAGE (clutter_actor_get_stage (self));
-
-  if (CLUTTER_IS_STAGE (stage_new_parent))
-    {
-      Window window_new_parent = clutter_x11_get_stage_window (stage_new_parent);
-
-      XReparentWindow (priv->display, priv->window,
-                       window_new_parent, 0, 0);
-
-      clutter_gst_overlay_actor_allocate (self, NULL, 0, NULL);
-    }
-
-  ClutterActor *parent = clutter_actor_get_parent (self);
-
-  /* We should track all parents for getting 'allocate' signal
-   * for correct allocating X window in stage coordinates
-   * when any parent moved and 'parent_set' signal
-   * for get 'allocate' signal from new parent of any parent
-   */
-
-  g_signal_handlers_disconnect_by_func (self,
-                                        clutter_gst_overlay_actor_allocate,
-                                        self);
-  g_signal_handlers_disconnect_by_func (self,
-                                        clutter_gst_overlay_actor_parent_set,
-                                        self);
-
-  while (parent)
-    {
-      g_signal_connect_swapped (parent, "parent-set",
-                                G_CALLBACK (clutter_gst_overlay_actor_parent_set),
-                                self);
-
-      g_signal_connect_swapped (parent, "allocation-changed",
-                                G_CALLBACK (clutter_gst_overlay_actor_allocate),
-                                self);
-
-      parent = clutter_actor_get_parent (parent);
-    }
 }
 
 static gint
@@ -844,6 +781,65 @@ clutter_media_interface_init (ClutterMediaIface *iface)
 {
 }
 
+static gboolean
+lay_pipeline (ClutterGstOverlayActorPrivate *priv)
+{
+  GstElement *audio_sink = NULL;
+  GstElement *video_sink = NULL;
+
+  priv->pipeline = gst_element_factory_make ("playbin2", "pipeline");
+  if (!priv->pipeline) 
+    {
+      g_critical ("Unable to create playbin2 element");
+      return FALSE;
+    }
+
+  audio_sink = gst_element_factory_make ("gconfaudiosink", "audio-sink");
+  if (!audio_sink) 
+    {
+      audio_sink = gst_element_factory_make ("autoaudiosink", "audio-sink");
+      if (!audio_sink) 
+	{
+	  audio_sink = gst_element_factory_make ("alsasink", "audio-sink");
+	  g_warning ("Could not create a GST audio_sink. "
+		     "Audio unavailable.");
+
+	  if (!audio_sink)
+	    audio_sink = gst_element_factory_make ("fakesink", "audio-sink");
+	}
+    }
+
+  video_sink = gst_element_factory_make ("xvimagesink", "video-sink");
+  if (!video_sink)
+    {
+      g_warning ("Could not find the fluvasink element");
+      /* FIXME: cleanup */
+      return FALSE;
+    }
+
+  priv->video_sink = video_sink;
+
+  g_object_set (G_OBJECT (video_sink), "qos", TRUE, "sync", TRUE, NULL);
+  g_object_set (G_OBJECT (priv->pipeline),
+                "video-sink", video_sink,
+                "audio-sink", audio_sink,
+                "subtitle-font-desc", "Sans 16",
+                NULL);
+
+  return TRUE;
+}
+
+static void
+clutter_gst_overlay_actor_constructed (GObject *object)
+{
+  ClutterGstOverlayActorPrivate *priv = CLUTTER_GST_OVERLAY_ACTOR_GET_PRIVATE (CLUTTER_GST_OVERLAY_ACTOR (object));
+
+  clutter_x11_texture_pixmap_set_window (
+                  CLUTTER_X11_TEXTURE_PIXMAP (object), priv->window, TRUE);
+  clutter_x11_texture_pixmap_set_automatic (CLUTTER_X11_TEXTURE_PIXMAP (object), TRUE);
+
+}
+
 static void
 clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
 {
@@ -866,17 +862,27 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
   XSetWindowAttributes attributes;
   attributes.override_redirect = True;
   attributes.background_pixel = BlackPixel(display, screen);
-  priv->window = window = XCreateWindow (display, rootwindow,
+  priv->window = window = XCreateSimpleWindow (display,
+                                              rootwindow,
+                                              0, 0, 1, 1,
+                                              0, 0,
+                                              None);
+                          /*
+                          XCreateWindow (display, rootwindow,
                                          0, 0, 1, 1, 0, 0, 0, 0,
                                          CWBackPixel | CWOverrideRedirect,
                                          &attributes);
-
+                          */
+  XCompositeRedirectWindow (display,
+                            window,
+                            CompositeRedirectManual);
+  XMapRaised (display, window);
   XSync (display, FALSE);
 
-  priv->pipeline   = pipeline   = gst_element_factory_make ("playbin2",
-                                                            "pipeline");
-  priv->video_sink = video_sink = gst_element_factory_make ("ximagesink",
-                                                            "window");
+  lay_pipeline(priv);
+  pipeline = priv->pipeline;
+  video_sink = priv->video_sink;
+
   priv->font_name  = NULL;
   priv->buffer_fill = 1.0;
 
@@ -884,15 +890,17 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
   gst_bus_add_watch (bus, bus_call, self);
   gst_object_unref (bus);
 
-  g_signal_connect (self, "show",
+/*  g_signal_connect (self, "show",
                     G_CALLBACK (clutter_gst_overlay_actor_show), NULL);
   g_signal_connect (self, "hide",
                     G_CALLBACK (clutter_gst_overlay_actor_hide), NULL);
+*/
   g_signal_connect (self, "allocation-changed",
                     G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
-  g_signal_connect (self, "parent-set",
-                    G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
 
+/*  g_signal_connect (self, "parent-set",
+                    G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
+*/
   g_signal_connect (pipeline, "notify::current-text",
                     G_CALLBACK (notify_current_text), self);
   g_signal_connect (pipeline, "notify::n-text",
@@ -912,9 +920,10 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
   g_signal_connect (pipeline, "notify::source",
                     G_CALLBACK (notify_source), self);
 
+/*
   g_object_set (G_OBJECT (pipeline), "video-sink", video_sink, NULL);
-
-  clutter_gst_overlay_actor_allocate (CLUTTER_ACTOR (self), NULL, 0, NULL);
+*/
+  /*clutter_gst_overlay_actor_allocate (CLUTTER_ACTOR (self), NULL, 0, NULL);*/
 }
 
 static void
@@ -926,6 +935,7 @@ clutter_gst_overlay_actor_class_init (ClutterGstOverlayActorClass *klass)
 
   g_type_class_add_private (klass, sizeof (ClutterGstOverlayActorPrivate));
 
+  gobject_class->constructed = clutter_gst_overlay_actor_constructed;
   gobject_class->dispose = clutter_gst_overlay_actor_dispose;
   gobject_class->finalize = clutter_gst_overlay_actor_finalize;
   gobject_class->set_property = clutter_gst_overlay_actor_set_property;

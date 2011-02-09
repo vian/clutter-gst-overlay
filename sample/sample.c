@@ -215,8 +215,9 @@ int main (int argc, char *argv[])
   clutter_stage_set_color (CLUTTER_STAGE (stage), &stage_color);
 
   ClutterActor *rect = clutter_gst_overlay_actor_new ();
-  //  clutter_actor_set_size (rect, 480, 270);
-  //  clutter_actor_set_position (rect, 10, 10);
+   /* clutter_actor_set_size (rect, 480, 270);
+    clutter_actor_set_position (rect, 10, 10);
+   */
   clutter_media_set_uri (CLUTTER_MEDIA (rect), *argvp++);
 
   if (argc >= 4) 
@@ -244,6 +245,7 @@ int main (int argc, char *argv[])
 
   clutter_media_set_subtitle_font_name (CLUTTER_MEDIA (rect), "Sans bold italic 32");
   clutter_media_set_audio_volume (CLUTTER_MEDIA (rect), 0.75);
+  /*clutter_media_set_playing (CLUTTER_MEDIA (rect), TRUE);*/
 
   g_signal_connect (CLUTTER_MEDIA (rect), "eos",
                     G_CALLBACK (close_actor), NULL);
@@ -261,7 +263,7 @@ int main (int argc, char *argv[])
 
   clutter_main ();
 
-  clutter_actor_destroy (ctrl);
+  /*clutter_actor_destroy (ctrl);*/
 
   return 0;
 }
