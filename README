@@ -1,0 +1,9 @@
+After cloning from git repository, cd to sample subdirectory and execute
+$ make
+
+Being in the same subdirectory run:
+$ ./sample file://{full path to video file} \
+file://{full path to subtitles file} \
+../interface.jpg
+
+Where subtitles path may be omitted.
