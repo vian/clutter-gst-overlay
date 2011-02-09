@@ -254,6 +254,30 @@ get_n_video (ClutterGstOverlayActor *self)
   return get_pipeline_int_prop (self, "n-video");
 }
 
+static void
+notify_n_text (GObject    *object,
+               GParamSpec *pspec,
+               gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "n-text");
+}
+
+static void
+notify_n_audio (GObject    *object,
+                GParamSpec *pspec,
+                gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "n-audio");
+}
+
+static void
+notify_n_video (GObject    *object,
+                GParamSpec *pspec,
+                gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "n-video");
+}
+
 static gint
 get_current_text (ClutterGstOverlayActor *self)
 {
@@ -291,6 +315,30 @@ set_current_video (ClutterGstOverlayActor *self,
                    gint                    stream)
 {
   set_pipeline_int_prop (self, "current-video", stream);
+}
+
+static void
+notify_current_text (GObject    *object,
+                     GParamSpec *pspec,
+                     gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "current-text");
+}
+
+static void
+notify_current_audio (GObject    *object,
+                      GParamSpec *pspec,
+                      gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "current-audio");
+}
+
+static void
+notify_current_video (GObject    *object,
+                      GParamSpec *pspec,
+                      gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "current-video");
 }
 
 static void
@@ -527,6 +575,17 @@ get_video_pad (ClutterGstOverlayActor *self,
                gint                    stream)
 {
   return get_pad (self, "get-video-pad", stream);
+}
+
+static void
+notify_source (GObject    *object,
+               GParamSpec *pspec,
+               gpointer    user_data)
+{
+  g_object_notify (G_OBJECT (user_data), "duration");
+  g_object_notify (G_OBJECT (user_data), "n-text");
+  g_object_notify (G_OBJECT (user_data), "n-audio");
+  g_object_notify (G_OBJECT (user_data), "n-video");
 }
 
 static void
@@ -804,6 +863,21 @@ clutter_gst_overlay_actor_init (ClutterGstOverlayActor *self)
                     G_CALLBACK (clutter_gst_overlay_actor_allocate), NULL);
   g_signal_connect (self, "parent-set",
                     G_CALLBACK (clutter_gst_overlay_actor_parent_set), NULL);
+
+  g_signal_connect (pipeline, "notify::current-text",
+                    G_CALLBACK (notify_current_text), self);
+  g_signal_connect (pipeline, "notify::n-text",
+                    G_CALLBACK (notify_n_text), self);
+  g_signal_connect (pipeline, "notify::current-audio",
+                    G_CALLBACK (notify_current_audio), self);
+  g_signal_connect (pipeline, "notify::n-audio",
+                    G_CALLBACK (notify_n_audio), self);
+  g_signal_connect (pipeline, "notify::current-video",
+                    G_CALLBACK (notify_current_video), self);
+  g_signal_connect (pipeline, "notify::n-video",
+                    G_CALLBACK (notify_n_video), self);
+  g_signal_connect (pipeline, "notify::source",
+                    G_CALLBACK (notify_source), self);
 
   g_object_set (G_OBJECT (pipeline), "video-sink", video_sink, NULL);
 
