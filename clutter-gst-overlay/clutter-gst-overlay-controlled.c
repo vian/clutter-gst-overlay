@@ -47,6 +47,8 @@
 #define PLAY_PAUSE_BUTTON_POS     0
 #define SOUND_ON_OFF_BUTTON_POS   1
 
+#define MAX_SUBTITLES 3
+
 struct _ClutterGstOverlayControlledPrivate
 {
   ClutterGstOverlayActor *video_actor;
@@ -78,10 +80,24 @@ G_DEFINE_TYPE (ClutterGstOverlayControlled,
                CLUTTER_TYPE_BOX);
 
 static void
-update_subtitles_control (ClutterGstOverlayControlled *self);
+update_subtitles_control_ncb (GObject    *object,
+                              GParamSpec *pspec,
+                              gpointer    user_data);
 
 static void
-create_subtitles_control (ClutterGstOverlayControlled *self);
+create_subtitles_control_ncb (GObject    *object,
+                              GParamSpec *pspec,
+                              gpointer    user_data);
+
+static void
+update_volume_control_ncb (GObject    *object,
+                           GParamSpec *pspec,
+                           gpointer    user_data);
+
+static void
+update_play_control_ncb (GObject    *object,
+                         GParamSpec *pspec,
+                         gpointer    user_data);
 
 static gboolean
 seek_clicked_cb (ClutterActor *actor,
@@ -92,6 +108,10 @@ static void
 create_button_actor (ClutterActor *button,
                      GCallback     c_handle,
                      gpointer      user_data);
+
+static void
+eos_cb (GObject *object,
+        gpointer user_data);
 
 static void
 clutter_gst_overlay_controlled_dispose (GObject *gobject)
@@ -346,6 +366,19 @@ clutter_gst_overlay_controlled_set_video_actor (ClutterGstOverlayControlled *sel
                          NULL);
 
   priv->video_actor = video_actor;
+
+  g_signal_connect (G_OBJECT (video_actor), "notify::n-text",
+                    G_CALLBACK (create_subtitles_control_ncb), self);
+  g_signal_connect (G_OBJECT (video_actor), "notify::current-text",
+                    G_CALLBACK (create_subtitles_control_ncb), self);
+  g_signal_connect (G_OBJECT (video_actor), "notify::subtitle-flag",
+                    G_CALLBACK (create_subtitles_control_ncb), self);
+  //  g_signal_connect (G_OBJECT (video_actor), "notify::mute",
+  //                    G_CALLBACK (update_volume_control_ncb), self);
+  g_signal_connect (G_OBJECT (video_actor), "notify::playing",
+                    G_CALLBACK (update_play_control_ncb), self);
+  g_signal_connect (G_OBJECT (video_actor), "eos",
+                    G_CALLBACK (eos_cb), self);
 }
 
 static ClutterActor *
@@ -404,17 +437,8 @@ play_media (ClutterActor *actor,
 
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor),
                         FALSE);
-  g_return_val_if_fail (CLUTTER_IS_BOX (priv->controls_actor), FALSE);
-
-  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor),
-                                  priv->play_button);
-
-  clutter_box_pack_at (priv->controls_actor, priv->pause_button,
-                       PLAY_PAUSE_BUTTON_POS, NULL, NULL);
 
   clutter_media_set_playing (CLUTTER_MEDIA (priv->video_actor), TRUE);
-
-  create_subtitles_control (self);
 
   return TRUE;
 }
@@ -431,13 +455,6 @@ pause_media (ClutterActor *actor,
 
   g_return_val_if_fail (CLUTTER_IS_GST_OVERLAY_ACTOR (priv->video_actor),
                         FALSE);
-  g_return_val_if_fail (CLUTTER_IS_BOX (priv->controls_actor), FALSE);
-
-  clutter_container_remove_actor (CLUTTER_CONTAINER (priv->controls_actor),
-                                  priv->pause_button);
-
-  clutter_box_pack_at (priv->controls_actor, priv->play_button,
-                       PLAY_PAUSE_BUTTON_POS, NULL, NULL);
 
   clutter_media_set_playing (CLUTTER_MEDIA (priv->video_actor), FALSE);
 
@@ -600,7 +617,7 @@ subtitle_button_set_color (ClutterActor       *actor,
   while (rect != NULL && !CLUTTER_IS_RECTANGLE (rect->data))
     rect = g_list_next (rect);
 
-  if (children != NULL)
+  if (rect != NULL)
     clutter_rectangle_set_color (CLUTTER_RECTANGLE (rect->data), color);
 
   g_list_free (children);
@@ -617,7 +634,9 @@ change_current_subtitle (ClutterActor *actor,
 
   if (index == 0)
     {
-      clutter_gst_overlay_actor_set_subtitle_flag (priv->video_actor, FALSE);
+      gboolean flag;
+      flag = clutter_gst_overlay_actor_get_subtitle_flag (priv->video_actor);
+      clutter_gst_overlay_actor_set_subtitle_flag (priv->video_actor, !flag);
     }
   else
     {
@@ -625,8 +644,6 @@ change_current_subtitle (ClutterActor *actor,
                     "current-text", index - 1, NULL);
       clutter_gst_overlay_actor_set_subtitle_flag (priv->video_actor, TRUE);
     }
-
-  update_subtitles_control (slf);
 
   return TRUE;
 }
@@ -642,25 +659,30 @@ subtitle_button_destroy (gpointer data,
 static void
 update_subtitles_control (ClutterGstOverlayControlled *self)
 {
+  if (self->priv->subtitle_radios == NULL)
+    return;
+
   ClutterGstOverlayControlledPrivate *priv = self->priv;
   gint n_text, current_text, i;
   ClutterActor *subtitle_radio;
-  gboolean flag = clutter_gst_overlay_actor_get_subtitle_flag (priv->video_actor);
+  gboolean flag;
+
   static ClutterColor active_subtitle_radio = { 0xaa, 0xaa, 0xaa, 0xff };
   static ClutterColor passive_subtitle_radio = { 0xcc, 0xcc, 0xcc, 0xff };
+
+  flag = clutter_gst_overlay_actor_get_subtitle_flag (priv->video_actor);
 
   g_object_get (G_OBJECT (priv->video_actor),
                 "n-text", &n_text,
                 "current-text", &current_text,
                 NULL);
 
-  for (i = 0; i <= n_text; ++i)
+  for (i = 0; i <= n_text && i <= MAX_SUBTITLES; ++i)
     {
       subtitle_radio = CLUTTER_ACTOR (g_list_nth (priv->subtitle_radios, 
                                                   i)->data);
       if ((!flag && i == 0) ||
           (flag && i == current_text + 1))
-
         {
           subtitle_button_set_color (subtitle_radio,
                                      &active_subtitle_radio);
@@ -685,9 +707,13 @@ create_subtitles_control (ClutterGstOverlayControlled *self)
                 NULL);
 
   g_list_foreach (priv->subtitle_radios, subtitle_button_destroy, NULL);
-  //  g_list_free (priv->subtitle_radios);
+  g_list_free (priv->subtitle_radios);
+  priv->subtitle_radios = NULL;
 
-  for (i = 0; i <= n_text; ++i)
+  if (n_text == 0)
+    return;
+
+  for (i = 0; i <= n_text && i <= MAX_SUBTITLES; ++i)
     {
       text = (i == 0) ? g_strdup_printf ("DS") : g_strdup_printf ("S%d", i);
       subtitle_radio = create_subtitle_radio (text);
@@ -705,6 +731,104 @@ create_subtitles_control (ClutterGstOverlayControlled *self)
     }
 
   update_subtitles_control (self);
+}
+
+static void
+update_play_control (ClutterGstOverlayControlled *self)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (self));
+
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+
+  g_return_if_fail (CLUTTER_IS_BOX (priv->controls_actor));
+
+  ClutterContainer *cont = CLUTTER_CONTAINER (priv->controls_actor);
+  GList *children = clutter_container_get_children (cont);
+  ClutterActor *button;
+  gboolean playing;
+
+  button = CLUTTER_ACTOR (g_list_nth_data (children, PLAY_PAUSE_BUTTON_POS));
+  clutter_container_remove_actor (cont, button);
+
+  playing = clutter_media_get_playing (CLUTTER_MEDIA (priv->video_actor));
+
+  clutter_box_pack_at (priv->controls_actor,
+                       (playing) ?
+                       priv->pause_button :
+		       priv->play_button,
+                       PLAY_PAUSE_BUTTON_POS,
+                       NULL, NULL);
+}
+
+static void
+update_volume_control (ClutterGstOverlayControlled *self)
+{
+  g_return_if_fail (CLUTTER_IS_GST_OVERLAY_CONTROLLED (self));
+
+  ClutterGstOverlayControlledPrivate *priv = self->priv;
+
+  g_return_if_fail (CLUTTER_IS_BOX (priv->controls_actor));
+
+  ClutterContainer *cont = CLUTTER_CONTAINER (priv->controls_actor);
+  GList *children = clutter_container_get_children (cont);
+  ClutterGstOverlayActor *video_actor;
+  ClutterActor *button;
+  gboolean mute;
+
+  button = CLUTTER_ACTOR (g_list_nth_data (children, SOUND_ON_OFF_BUTTON_POS));
+  clutter_container_remove_actor (cont, button);
+
+  video_actor = CLUTTER_GST_OVERLAY_ACTOR (priv->video_actor);
+  mute = clutter_gst_overlay_actor_get_mute (video_actor);
+
+  clutter_box_pack_at (priv->controls_actor,
+                       (mute) ?
+                       priv->sound_on_button :
+		       priv->sound_off_button,
+                       SOUND_ON_OFF_BUTTON_POS,
+                       NULL, NULL);
+}
+
+static void
+create_subtitles_control_ncb (GObject    *object,
+                              GParamSpec *pspec,
+                              gpointer    user_data)
+{
+  create_subtitles_control (CLUTTER_GST_OVERLAY_CONTROLLED (user_data));
+}
+
+static void
+update_subtitles_control_ncb (GObject    *object,
+                              GParamSpec *pspec,
+                              gpointer    user_data)
+{
+  update_subtitles_control (CLUTTER_GST_OVERLAY_CONTROLLED (user_data));
+}
+
+static void
+update_volume_control_ncb (GObject    *object,
+                           GParamSpec *pspec,
+                           gpointer    user_data)
+{
+  update_volume_control (CLUTTER_GST_OVERLAY_CONTROLLED (user_data));
+}
+
+static void
+update_play_control_ncb (GObject    *object,
+                         GParamSpec *pspec,
+                         gpointer    user_data)
+{
+  update_play_control (CLUTTER_GST_OVERLAY_CONTROLLED (user_data));
+}
+
+static void
+eos_cb (GObject *gobject,
+        gpointer user_data)
+{
+  ClutterGstOverlayControlled *self;
+  self = CLUTTER_GST_OVERLAY_CONTROLLED (user_data);
+  clutter_gst_overlay_actor_set_subtitle_flag (self->priv->video_actor, TRUE);
+  create_subtitles_control (self);
 }
 
 void
